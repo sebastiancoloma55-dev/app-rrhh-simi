@@ -1,0 +1,7 @@
+streamlit
+pandas
+sqlite3
+openpyxl
+streamlit-folium
+folium
+numpy
