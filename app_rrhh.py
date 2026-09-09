@@ -7,17 +7,20 @@ from streamlit_folium import st_folium
 import folium
 
 # ==========================================
-# 1. CONFIGURACIÓN INICIAL
+# 1. CONFIGURACIÓN Y OPTIMIZACIÓN INICIAL
 # ==========================================
 st.set_page_config(
-    page_title="Gestión de Coberturas",
-    page_icon="🏢",
+    page_title="Gestión Corporativa de Coberturas | Dr. Simi",
+    page_icon="💊",
     layout="wide",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="expanded"
 )
 
+# Base de datos local segura para la nube
+DB_NAME = 'base_rrhh_corporativa.db'
+
 def init_db():
-    conn = sqlite3.connect('base_rrhh_corporativa.db', check_same_thread=False)
+    conn = sqlite3.connect(DB_NAME, check_same_thread=False)
     c = conn.cursor()
     c.execute('''CREATE TABLE IF NOT EXISTS sucursales 
                  (codigo TEXT PRIMARY KEY, nombre TEXT, direccion TEXT, comuna TEXT, region TEXT, 
@@ -46,6 +49,14 @@ def init_db():
 
 conn = init_db()
 
+# Funciones ultrarrápidas con caché para optimizar velocidad
+@st.cache_data(ttl=60)
+def cargar_datos_sql(query):
+    con_temp = sqlite3.connect(DB_NAME, check_same_thread=False)
+    df = pd.read_sql(query, con_temp)
+    con_temp.close()
+    return df
+
 # ==========================================
 # 2. ESTADOS DE AUTENTICACIÓN
 # ==========================================
@@ -55,18 +66,15 @@ if 'autenticado' not in st.session_state:
     st.session_state.rol_actual = ""
 
 # ==========================================
-# 3. PANTALLA DE LOGIN ULTRA-MODERNA (FORZADA CON !IMPORTANT)
+# 3. PANTALLA DE LOGIN "WUAO" (GLASSMORPHISM)
 # ==========================================
 if not st.session_state.autenticado:
-    # Este CSS inyecta un fondo animado en toda la pantalla y oculta la interfaz de Streamlit
     st.markdown("""
     <style>
-    /* Ocultar barra lateral y cabecera de Streamlit a la fuerza */
     [data-testid="stSidebar"] { display: none !important; }
     [data-testid="stHeader"] { display: none !important; }
     .stApp > header { display: none !important; }
     
-    /* Fondo animado oscuro */
     .stApp {
         background: linear-gradient(-45deg, #050505, #132a4a, #0b1a2e, #050505) !important;
         background-size: 400% 400% !important;
@@ -79,7 +87,6 @@ if not st.session_state.autenticado:
         100% { background-position: 0% 50%; }
     }
 
-    /* Centrar el contenido vertical y horizontalmente */
     .main .block-container {
         display: flex !important;
         flex-direction: column !important;
@@ -90,7 +97,6 @@ if not st.session_state.autenticado:
         padding: 0 !important;
     }
 
-    /* Tarjeta Glassmorphism (Efecto Cristal) */
     div[data-testid="stForm"] {
         background: rgba(255, 255, 255, 0.03) !important;
         backdrop-filter: blur(16px) !important;
@@ -104,14 +110,12 @@ if not st.session_state.autenticado:
         margin: 0 auto !important;
     }
 
-    /* Textos del formulario */
     div[data-testid="stForm"] p, div[data-testid="stForm"] label {
         color: #e2e8f0 !important;
         font-family: 'Helvetica Neue', sans-serif !important;
         letter-spacing: 1px !important;
     }
 
-    /* Inputs (Cajas de texto) oscuras y modernas */
     div[data-testid="stForm"] input {
         background: rgba(0, 0, 0, 0.3) !important;
         color: #ffffff !important;
@@ -120,12 +124,7 @@ if not st.session_state.autenticado:
         padding: 12px 16px !important;
         font-size: 16px !important;
     }
-    div[data-testid="stForm"] input:focus {
-        border-color: #3b82f6 !important;
-        box-shadow: 0 0 15px rgba(59, 130, 246, 0.4) !important;
-    }
 
-    /* Botón de acceso */
     div[data-testid="stForm"] button {
         background: linear-gradient(90deg, #2563eb, #1e3a8a) !important;
         color: white !important;
@@ -145,16 +144,14 @@ if not st.session_state.autenticado:
     </style>
     """, unsafe_allow_html=True)
     
-    # Textos de Bienvenida (Flotando sobre la tarjeta)
     st.markdown("""
     <div style="text-align: center; margin-bottom: 30px; margin-top: -50px;">
-        <h1 style="color: #ffffff; font-size: 45px; font-weight: 900; letter-spacing: -1px; margin: 0; text-shadow: 0 5px 15px rgba(0,0,0,0.5);">PORTAL OPERATIVO</h1>
+        <h1 style="color: #ffffff; font-size: 42px; font-weight: 900; letter-spacing: -1px; margin: 0; text-shadow: 0 5px 15px rgba(0,0,0,0.5);">PORTAL OPERATIVO</h1>
         <div style="height: 3px; width: 60px; background: #3b82f6; margin: 15px auto;"></div>
         <p style="color: #94a3b8; font-size: 14px; letter-spacing: 2px; text-transform: uppercase; margin: 0;">Gestión Inteligente de Recursos</p>
     </div>
     """, unsafe_allow_html=True)
     
-    # Formulario de inicio de sesión
     with st.form("login_form"):
         st.markdown("<p style='text-align: center; font-size: 18px; font-weight: 600; margin-bottom: 25px;'>Identificación Segura</p>", unsafe_allow_html=True)
         user_input = st.text_input("Usuario", placeholder="Ej: admin")
@@ -177,9 +174,8 @@ if not st.session_state.autenticado:
     st.stop()
 
 # ==========================================
-# 4. APLICACIÓN PRINCIPAL (DISEÑO BLANCO Y LIMPIO)
+# 4. APLICACIÓN PRINCIPAL (PANEL EJECUTIVO)
 # ==========================================
-# Una vez logueado, forzamos a que vuelva el estilo claro y normal del dashboard
 st.markdown("""
 <style>
 [data-testid="stSidebar"] { display: flex !important; background-color: #0b2545 !important; }
@@ -205,7 +201,6 @@ h1, h2, h3 { color: #0b2545; font-family: 'Helvetica Neue', sans-serif; }
 </style>
 """, unsafe_allow_html=True)
 
-# Menú Lateral Tipográfico
 st.sidebar.markdown("""
     <div style='text-align: center; padding: 15px 0 5px 0;'>
         <h2 style='color: white; margin: 0; font-weight: 900; letter-spacing: 1px;'>DR. SIMI</h2>
@@ -227,21 +222,22 @@ menu = st.sidebar.radio("Navegación:", menu_opciones)
 st.sidebar.markdown("---")
 if st.sidebar.button("🚪 Cerrar Sesión", use_container_width=True):
     st.session_state.autenticado = False
+    st.cache_data.clear()
     st.rerun()
 
 st.sidebar.markdown("<p style='text-align: center; color: #64748b; font-size: 11px; margin-top: 30px;'>Dev: Sebastian Coloma</p>", unsafe_allow_html=True)
 
 # ==========================================
-# 5. MÓDULOS DE LA APLICACIÓN
+# 5. MÓDULOS OPTIMIZADOS
 # ==========================================
 if menu == "📊 Dashboard Ejecutivo":
     st.markdown("<h1 class='main-title'>💊 Centro de Control Logístico</h1>", unsafe_allow_html=True)
     st.markdown("Plataforma oficial de control de dotación, ausentismo, licencias médicas y continuidad operacional.")
     
-    total_suc = pd.read_sql("SELECT COUNT(*) FROM sucursales", conn).iloc[0,0]
-    total_colab = pd.read_sql("SELECT COUNT(*) FROM colaboradores", conn).iloc[0,0]
-    total_vac = pd.read_sql("SELECT COUNT(*) FROM solicitudes WHERE estado IN ('Aprobada', 'Pre Aprobada', 'Pendiente')", conn).iloc[0,0]
-    total_lic = pd.read_sql("SELECT COUNT(*) FROM licencias WHERE estado = 'Aprobada'", conn).iloc[0,0]
+    total_suc = cargar_datos_sql("SELECT COUNT(*) FROM sucursales").iloc[0,0]
+    total_colab = cargar_datos_sql("SELECT COUNT(*) FROM colaboradores").iloc[0,0]
+    total_vac = cargar_datos_sql("SELECT COUNT(*) FROM solicitudes WHERE estado IN ('Aprobada', 'Pre Aprobada', 'Pendiente')").iloc[0,0]
+    total_lic = cargar_datos_sql("SELECT COUNT(*) FROM licencias WHERE estado = 'Aprobada'").iloc[0,0]
     
     c1, c2, c3, c4 = st.columns(4)
     with c1:
@@ -259,9 +255,8 @@ if menu == "📊 Dashboard Ejecutivo":
 
 elif menu == "🗺️ Mapa Autoajustable":
     st.markdown("<h1 class='main-title'>🗺️ Radar Georreferenciado Autoajustable</h1>", unsafe_allow_html=True)
-    st.markdown("El mapa ajusta automáticamente sus dimensiones. Los desplegables cuentan con barra de desplazamiento para ver toda la información sin cortes.")
     
-    sucursales_df = pd.read_sql("SELECT codigo, nombre, direccion, comuna, region, director_tecnico, dt_complementario, latitud, longitud FROM sucursales", conn)
+    sucursales_df = cargar_datos_sql("SELECT codigo, nombre, direccion, comuna, region, director_tecnico, dt_complementario, latitud, longitud FROM sucursales")
     
     if sucursales_df.empty:
         st.warning("⚠️ No hay sucursales cargadas. Sube tus archivos en el módulo de Carga Masiva Unificada.")
@@ -285,9 +280,11 @@ elif menu == "🗺️ Mapa Autoajustable":
                 lat, lon = row['latitud'], row['longitud']
                 puntos_bounds.append([lat, lon])
                 
-                lic_s = pd.read_sql("SELECT nombre, apellido_p, fecha_desde, fecha_hasta, tipo_ausencia FROM licencias WHERE sucursal = ? AND estado = 'Aprobada'", conn, params=(nombre_s,))
-                vac_s = pd.read_sql("SELECT nombre, fecha_desde, fecha_hasta, tipo FROM solicitudes WHERE codigo_sucursal = ? AND estado IN ('Aprobada', 'Pre Aprobada', 'Pendiente')", conn, params=(codigo_s,))
-                mov_s = pd.read_sql("SELECT * FROM movimientos WHERE sucursal_destino = ?", conn, params=(codigo_s,))
+                con_local = sqlite3.connect(DB_NAME)
+                lic_s = pd.read_sql("SELECT nombre, apellido_p, fecha_desde, fecha_hasta, tipo_ausencia FROM licencias WHERE sucursal = ? AND estado = 'Aprobada'", con_local, params=(nombre_s,))
+                vac_s = pd.read_sql("SELECT nombre, fecha_desde, fecha_hasta, tipo FROM solicitudes WHERE codigo_sucursal = ? AND estado IN ('Aprobada', 'Pre Aprobada', 'Pendiente')", con_local, params=(codigo_s,))
+                mov_s = pd.read_sql("SELECT * FROM movimientos WHERE sucursal_destino = ?", con_local, params=(codigo_s,))
+                con_local.close()
                 
                 html_popup = f"""
                 <div style="max-height: 250px; overflow-y: auto; padding-right: 5px; font-size: 13px; font-family: sans-serif; color: #000;">
@@ -330,8 +327,6 @@ elif menu == "🗺️ Mapa Autoajustable":
 
 elif menu == "🚨 Alertas Críticas (QF y Licencias)":
     st.markdown("<h1 class='main-title'>🚨 Panel de Control de Riesgo y Cobertura Sanitaria</h1>", unsafe_allow_html=True)
-    st.markdown("Auditoría en tiempo real de farmacias con ausencias críticas y fechas de inicio y retorno.")
-    
     filtro_global = st.text_input("🔍 Filtrar Alertas (Escribe nombre de colaborador o sucursal):", "")
 
     tab1, tab2 = st.tabs(["🏖️ Vacaciones y Permisos", "🏥 Licencias Médicas"])
@@ -347,7 +342,7 @@ elif menu == "🚨 Alertas Críticas (QF y Licencias)":
             WHERE s.estado IN ('Aprobada', 'Pre Aprobada', 'Pendiente')
             ORDER BY s.estado ASC
         '''
-        df_v = pd.read_sql(q_vac, conn)
+        df_v = cargar_datos_sql(q_vac)
         if df_v.empty:
             st.info("No hay solicitudes de vacaciones registradas.")
         else:
@@ -356,7 +351,7 @@ elif menu == "🚨 Alertas Críticas (QF y Licencias)":
             st.dataframe(df_v, use_container_width=True)
             
     with tab2:
-        st.subheader("Colaboradores con Licencia Médica (Fechas de Inicio y Retorno Exactas)")
+        st.subheader("Colaboradores con Licencia Médica")
         q_lic = '''
             SELECT l.estado as "Estado", l.tipo_ausencia as "Tipo Ausencia", l.fecha_desde as "Fecha Inicio", 
                    l.fecha_hasta as "Fecha Retorno", l.dias as "Total Días", 
@@ -364,7 +359,7 @@ elif menu == "🚨 Alertas Críticas (QF y Licencias)":
             FROM licencias l
             WHERE l.estado = 'Aprobada'
         '''
-        df_l = pd.read_sql(q_lic, conn)
+        df_l = cargar_datos_sql(q_lic)
         if df_l.empty:
             st.info("No hay licencias médicas cargadas.")
         else:
@@ -374,10 +369,9 @@ elif menu == "🚨 Alertas Críticas (QF y Licencias)":
 
 elif menu == "🔄 Registrar Movimiento / Cobertura":
     st.markdown("<h1 class='main-title'>🔄 Asignación de Coberturas y Traslados</h1>", unsafe_allow_html=True)
-    st.markdown("Registra formalmente el traslado temporal con cálculo automático y visible de la jornada neta.")
     
-    colaboradores = pd.read_sql("SELECT rut, nombre_completo, codigo_sucursal FROM colaboradores", conn)
-    sucursales = pd.read_sql("SELECT codigo, nombre FROM sucursales", conn)
+    colaboradores = cargar_datos_sql("SELECT rut, nombre_completo, codigo_sucursal FROM colaboradores")
+    sucursales = cargar_datos_sql("SELECT codigo, nombre FROM sucursales")
     
     if colaboradores.empty or sucursales.empty:
         st.warning("⚠️ Primero debes subir los archivos Excel en el módulo de Carga Masiva Unificada.")
@@ -400,7 +394,7 @@ elif menu == "🔄 Registrar Movimiento / Cobertura":
                 indice_defecto = idx
                 break
         
-        suc_origen_elegida = st.selectbox("Sucursal de Origen (Predeterminada del empleado, editable):", options=lista_suc_opciones, index=indice_defecto)
+        suc_origen_elegida = st.selectbox("Sucursal de Origen:", options=lista_suc_opciones, index=indice_defecto)
         suc_destino = st.selectbox("Sucursal de Destino (A cubrir):", options=list(dict_suc.keys()))
         
         c_cond1, c_cond2 = st.columns(2)
@@ -409,9 +403,7 @@ elif menu == "🔄 Registrar Movimiento / Cobertura":
             emp_reemplaza = st.selectbox("¿A quién cubre?:", options=opciones_reemplaza)
         with c_cond2:
             motivo_op = st.selectbox("Motivo:", ["Cobertura Vacaciones QF", "Licencia Médica", "Permiso Administrativo", "Refuerzo Apertura", "Otro"])
-            motivo_custom = ""
-            if motivo_op == "Otro":
-                motivo_custom = st.text_input("Especifica el motivo (Obligatorio):")
+            motivo_custom = st.text_input("Especifica el motivo (Si elegiste 'Otro'):") if motivo_op == "Otro" else ""
         
         st.markdown("---")
         st.markdown("### ⏱️ Configuración de Turnos y Cálculo de Jornada Neta")
@@ -466,12 +458,12 @@ elif menu == "🔄 Registrar Movimiento / Cobertura":
                           (datetime.now(), st.session_state.usuario_actual, dict_colab[emp_mueve], cod_origen_final, dict_suc[suc_destino],
                            rut_reemplazado, fecha_inicio, fecha_fin, horario_consolidado, motivo_op if motivo_op != "Otro" else motivo_custom))
                 conn.commit()
+                st.cache_data.clear()
                 st.success("✅ ¡Movimiento registrado correctamente con control de jornada y horas netas!")
 
 elif menu == "📋 Historial Corporativo":
     st.markdown("<h1 class='main-title'>📋 Historial de Coberturas y Movimientos</h1>", unsafe_allow_html=True)
-    
-    filtro_historial = st.text_input("🔍 Buscar en Historial (Colaborador, Sucursal o Usuario que realizó):", "")
+    filtro_historial = st.text_input("🔍 Buscar en Historial:", "")
 
     query = '''
         SELECT m.fecha_registro as "Fecha Registro", m.usuario_realiza as "Realizado por", c1.nombre_completo as "Colaborador Movido", 
@@ -485,7 +477,7 @@ elif menu == "📋 Historial Corporativo":
         LEFT JOIN sucursales s2 ON m.sucursal_destino = s2.codigo 
         ORDER BY m.fecha_registro DESC
     '''
-    df_historial = pd.read_sql(query, conn)
+    df_historial = cargar_datos_sql(query)
     if df_historial.empty:
         st.info("No hay registros de movimientos todavía.")
     else:
@@ -497,7 +489,6 @@ elif menu == "📋 Historial Corporativo":
 
 elif menu == "🔑 Gestión de Usuarios (Admin)" and st.session_state.rol_actual == "Admin Supremo":
     st.markdown("<h1 class='main-title'>🔑 Panel Maestro: Creación de Usuarios y Accesos</h1>", unsafe_allow_html=True)
-    st.markdown("Crea credenciales personalizadas para supervisores, jefaturas o personal de recursos humanos.")
     
     with st.form("form_nuevo_usuario"):
         c_u1, c_u2 = st.columns(2)
@@ -515,6 +506,7 @@ elif menu == "🔑 Gestión de Usuarios (Admin)" and st.session_state.rol_actual
                     c = conn.cursor()
                     c.execute("INSERT INTO usuarios VALUES (?, ?, ?, ?)", (nuevo_user, nuevo_pass, nuevo_nombre, nuevo_rol))
                     conn.commit()
+                    st.cache_data.clear()
                     st.success(f"✅ ¡Usuario `{nuevo_user}` creado exitosamente!")
                 except Exception as e:
                     st.error(f"⚠️ El usuario ya existe o hubo un error: {e}")
@@ -523,7 +515,7 @@ elif menu == "🔑 Gestión de Usuarios (Admin)" and st.session_state.rol_actual
 
     st.markdown("---")
     st.subheader("📋 Usuarios Activos en el Sistema")
-    df_usuarios = pd.read_sql("SELECT usuario, nombre_completo, rol FROM usuarios", conn)
+    df_usuarios = cargar_datos_sql("SELECT usuario, nombre_completo, rol FROM usuarios")
     st.dataframe(df_usuarios, use_container_width=True)
 
 elif menu == "📁 Carga Masiva Unificada":
@@ -598,10 +590,7 @@ elif menu == "📁 Carga Masiva Unificada":
                 
                 df_c = pd.DataFrame()
                 id_col = next((c for c in df.columns if str(c).strip().lower() in ['id', 'folio', 'n°', 'nro']), None)
-                if id_col:
-                    df_c['id_solicitud'] = df[id_col]
-                else:
-                    df_c['id_solicitud'] = range(1, len(df) + 1)
+                df_c['id_solicitud'] = df[id_col] if id_col else range(1, len(df) + 1)
                 
                 col_rut_v = next((c for c in df.columns if 'rut' in str(c).lower()), df.columns[0])
                 col_nom_v = next((c for c in df.columns if 'nombre' in str(c).lower()), df.columns[1] if len(df.columns)>1 else df.columns[0])
@@ -641,6 +630,7 @@ elif menu == "📁 Carga Masiva Unificada":
                 procesados += 1
 
             if procesados > 0:
-                st.success(f"✅ ¡Se han procesado exitosamente {procesados} archivos!")
+                st.cache_data.clear()
+                st.success(f"✅ ¡Se han procesado y consolidado exitosamente {procesados} archivos juntos con éxito rotundo!")
             else:
                 st.warning("⚠️ Debes subir al menos un archivo antes de procesar.")
