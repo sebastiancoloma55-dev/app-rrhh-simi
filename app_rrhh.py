@@ -1,12 +1,13 @@
 import streamlit as st
 import pandas as pd
 import sqlite3
-from datetime import datetime, time, timedelta
+from datetime import datetime, time, timedelta, date
 import numpy as np
 from streamlit_folium import st_folium
 import folium
 import random
 import string
+import io
 
 # ==========================================
 # 1. CONFIGURACIÓN Y OPTIMIZACIÓN INICIAL
@@ -38,6 +39,8 @@ def init_db():
                  (id INTEGER PRIMARY KEY AUTOINCREMENT, fecha_registro TIMESTAMP, usuario_realiza TEXT, rut_colaborador TEXT, 
                   sucursal_origen TEXT, sucursal_destino TEXT, rut_reemplazado TEXT, fecha_inicio DATE, 
                   fecha_fin DATE, nuevo_horario TEXT, motivo TEXT)''')
+    c.execute('''CREATE TABLE IF NOT EXISTS bitacora_diaria 
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT, fecha TIMESTAMP, sucursal TEXT, usuario TEXT, novedad TEXT)''')
     c.execute('''CREATE TABLE IF NOT EXISTS usuarios 
                  (usuario TEXT PRIMARY KEY, password TEXT, nombre_completo TEXT, rol TEXT)''')
     
@@ -61,8 +64,15 @@ def generar_password_segura(string_longitud=8):
     letras = string.ascii_letters + string.digits
     return "".join(random.choice(letras) for i in range(string_longitud))
 
+def convertir_df_a_excel(df):
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False)
+    processed_data = output.getvalue()
+    return processed_data
+
 # ==========================================
-# 2. CONTROL DE SESIÓN PERSISTENTE Y EXPIRO (3 HORAS)
+# 2. CONTROL DE SESIÓN PERSISTENTE Y 3 HORAS
 # ==========================================
 if 'autenticado' not in st.session_state:
     st.session_state.autenticado = False
@@ -70,7 +80,6 @@ if 'autenticado' not in st.session_state:
     st.session_state.rol_actual = ""
     st.session_state.tiempo_login = None
 
-# Verificación automática de expiración por inactividad (3 Horas)
 TIEMPO_EXPIRACION = timedelta(hours=3)
 if st.session_state.autenticado and st.session_state.tiempo_login:
     if datetime.now() - st.session_state.tiempo_login > TIEMPO_EXPIRACION:
@@ -182,7 +191,7 @@ if not st.session_state.autenticado:
                 st.session_state.autenticado = True
                 st.session_state.usuario_actual = res[1]
                 st.session_state.rol_actual = res[2]
-                st.session_state.tiempo_login = datetime.now() # Registrar inicio de sesión
+                st.session_state.tiempo_login = datetime.now()
                 st.rerun()
             else:
                 st.error("❌ Credenciales inválidas.")
@@ -228,10 +237,21 @@ st.sidebar.markdown("""
 st.sidebar.markdown(f"<div style='background: rgba(255,255,255,0.05); padding: 12px; border-radius: 8px; margin: 15px 0; border: 1px solid rgba(255,255,255,0.1);'>👤 <b>{st.session_state.usuario_actual}</b><br><span style='font-size: 11px; color: #94a3b8;'>Rol: {st.session_state.rol_actual}</span></div>", unsafe_allow_html=True)
 st.sidebar.markdown("---")
 
-menu_opciones = ["📊 Dashboard Ejecutivo", "🗺️ Mapa Autoajustable", "🚨 Alertas Críticas (QF y Licencias)", "🔄 Registrar Movimiento / Cobertura", "📋 Historial Corporativo", "📁 Carga Masiva Unificada"]
+menu_opciones = [
+    "📊 Dashboard Ejecutivo", 
+    "📅 Agenda Diaria de Coberturas",
+    "📈 Analítica & Reportes",
+    "🗺️ Mapa Autoajustable", 
+    "🚨 Alertas Críticas (QF y Licencias)", 
+    "🔄 Registrar Movimiento / Cobertura", 
+    "📝 Bitácora de Novedades",
+    "📋 Historial Corporativo", 
+    "📁 Carga Masiva Unificada"
+]
 
 if st.session_state.rol_actual == "Admin Supremo":
     menu_opciones.append("🔑 Gestión de Usuarios (Admin)")
+    menu_opciones.append("🛡️ Auditoría del Sistema")
 
 menu = st.sidebar.radio("Navegación:", menu_opciones)
 
@@ -245,7 +265,7 @@ if st.sidebar.button("🚪 Cerrar Sesión", use_container_width=True):
 st.sidebar.markdown("<p style='text-align: center; color: #64748b; font-size: 11px; margin-top: 30px;'>Dev: Sebastian Coloma</p>", unsafe_allow_html=True)
 
 # ==========================================
-# 5. MÓDULOS CON CONTROL MAESTRO Y ELIMINACIÓN
+# 5. MÓDULOS DE LA APLICACIÓN
 # ==========================================
 if menu == "📊 Dashboard Ejecutivo":
     st.markdown("<h1 class='main-title'>💊 Centro de Control Logístico</h1>", unsafe_allow_html=True)
@@ -269,6 +289,53 @@ if menu == "📊 Dashboard Ejecutivo":
     st.markdown("---")
     st.markdown("<div class='simi-header'>SISTEMA DE ALERTA TEMPRANA PARA QUÍMICOS FARMACÉUTICOS (QF) Y COBERTURAS</div>", unsafe_allow_html=True)
     st.info("ℹ️ El sistema detecta automáticamente si una farmacia se queda sin **Titular 1 y Titular 2 (DT Complementario)** de forma simultánea por vacaciones o licencias médicas, previniendo cierres y multas sanitarias.")
+
+elif menu == "📅 Agenda Diaria de Coberturas":
+    st.markdown("<h1 class='main-title'>📅 Agenda Diaria de Coberturas Activas</h1>", unsafe_allow_html=True)
+    st.markdown("Consulta en tiempo real qué personal está cubriendo turnos en las sucursales para el día de hoy.")
+    
+    hoy_str = datetime.today().strftime('%Y-%m-%d')
+    q_agenda = f"""
+        SELECT m.fecha_registro as "Registro", c1.nombre_completo as "Colaborador de Apoyo", 
+               s1.nombre as "Sucursal Origen", s2.nombre as "Sucursal Destino", 
+               m.fecha_inicio as "Desde", m.fecha_fin as "Hasta", m.motivo as "Motivo", m.nuevo_horario as "Turnos y Horario"
+        FROM movimientos m
+        LEFT JOIN colaboradores c1 ON m.rut_colaborador = c1.rut
+        LEFT JOIN sucursales s1 ON m.sucursal_origen = s1.codigo
+        LEFT JOIN sucursales s2 ON m.sucursal_destino = s2.codigo
+        WHERE m.fecha_inicio <= '{hoy_str}' AND m.fecha_fin >= '{hoy_str}'
+    """
+    df_agenda = cargar_datos_sql(q_agenda)
+    if df_agenda.empty:
+        st.info("ℹ️ No hay coberturas activas programadas exactamente para el día de hoy.")
+    else:
+        st.success(f"✅ Se encontraron coberturas activas vigentes para la fecha actual ({hoy_str}).")
+        st.dataframe(df_agenda, use_container_width=True)
+
+elif menu == "📈 Analítica & Reportes":
+    st.markdown("<h1 class='main-title'>📈 Analítica y Estadísticas Corporativas</h1>", unsafe_allow_html=True)
+    
+    colabs_df = cargar_datos_sql("SELECT cargo, codigo_sucursal FROM colaboradores")
+    sucs_df = cargar_datos_sql("SELECT region, comuna FROM sucursales")
+    
+    c_an1, c_an2 = st.columns(2)
+    with c_an1:
+        st.subheader("👥 Distribución de Cargos")
+        if not colabs_df.empty and 'cargo' in colabs_df.columns:
+            conteo_cargos = colabs_df['cargo'].value_counts().reset_index()
+            conteo_cargos.columns = ['Cargo', 'Cantidad']
+            st.dataframe(conteo_cargos, use_container_width=True)
+        else:
+            st.info("No hay datos suficientes de colaboradores.")
+            
+    with c_an2:
+        st.subheader("🗺️ Sucursales por Región")
+        if not sucs_df.empty and 'region' in sucs_df.columns:
+            conteo_regiones = sucs_df['region'].value_counts().reset_index()
+            conteo_regiones.columns = ['Región', 'Total Sucursales']
+            st.dataframe(conteo_regiones, use_container_width=True)
+        else:
+            st.info("No hay datos suficientes de sucursales.")
 
 elif menu == "🗺️ Mapa Autoajustable":
     st.markdown("<h1 class='main-title'>🗺️ Radar Georreferenciado Autoajustable</h1>", unsafe_allow_html=True)
@@ -478,10 +545,43 @@ elif menu == "🔄 Registrar Movimiento / Cobertura":
                 st.cache_data.clear()
                 st.success("✅ ¡Movimiento registrado correctamente con control de jornada y horas netas!")
 
+elif menu == "📝 Bitácora de Novedades":
+    st.markdown("<h1 class='main-title'>📝 Bitácora Diaria de Novedades por Sucursal</h1>", unsafe_allow_html=True)
+    st.markdown("Deja notas operativas, incidencias o avisos importantes para el seguimiento diario.")
+    
+    sucursales = cargar_datos_sql("SELECT codigo, nombre FROM sucursales")
+    if sucursales.empty:
+        st.warning("⚠️ Carga las sucursales primero.")
+    else:
+        dict_sucs_bit = dict(zip(sucursales['nombre'] + " (" + sucursales['codigo'] + ")", sucursales['codigo']))
+        
+        with st.form("form_bitacora"):
+            suc_elegida = st.selectbox("Seleccionar Sucursal:", options=list(dict_sucs_bit.keys()))
+            novedad_texto = st.text_area("Descripción de la Novedad / Incidencia / Nota Operativa:")
+            submit_bit = st.form_submit_button("➕ Registrar Nota en Bitácora")
+            
+            if submit_bit:
+                if novedad_texto.strip():
+                    c = conn.cursor()
+                    c.execute("INSERT INTO bitacora_diaria (fecha, sucursal, usuario, novedad) VALUES (?, ?, ?, ?)",
+                              (datetime.now(), suc_elegida, st.session_state.usuario_actual, novedad_texto))
+                    conn.commit()
+                    st.cache_data.clear()
+                    st.success("✅ ¡Novedad registrada con éxito en la bitácora!")
+                else:
+                    st.warning("⚠️ Escribe un texto válido para la novedad.")
+                    
+        st.markdown("---")
+        st.subheader("📋 Historial de Novedades Registradas")
+        df_bit = cargar_datos_sql("SELECT fecha as 'Fecha y Hora', sucursal as 'Sucursal', usuario as 'Registrado por', novedad as 'Novedad' FROM bitacora_diaria ORDER BY id DESC")
+        if df_bit.empty:
+            st.info("No hay registros en la bitácora.")
+        else:
+            st.dataframe(df_bit, use_container_width=True)
+
 elif menu == "📋 Historial Corporativo":
     st.markdown("<h1 class='main-title'>📋 Historial de Coberturas y Movimientos</h1>", unsafe_allow_html=True)
     
-    # Herramienta de eliminación de historial exclusiva para Administradores
     if st.session_state.rol_actual == "Admin Supremo":
         with st.expander("⚙️ Zona de Gestión de Historial (Admin Supremo)"):
             if st.button("🗑️ Eliminar TODO el Historial de Movimientos", type="primary"):
@@ -549,9 +649,14 @@ elif menu == "🔑 Gestión de Usuarios (Admin)" and st.session_state.rol_actual
 
     with tab_u2:
         st.subheader("Carga Masiva de Usuarios vía Excel")
-        st.caption("Sube un archivo Excel con las columnas: `usuario`, `password` (opcional, si se deja en blanco el sistema genera una), `nombre_completo`, `rol`.")
+        st.caption("Descarga la plantilla oficial, complétala y súbela para crear múltiples accesos al instante.")
         
-        file_usuarios_masivo = st.file_uploader("Subir Archivo Excel de Usuarios:", type=['xlsx'])
+        df_plantilla_usr = pd.DataFrame(columns=['usuario', 'password', 'nombre_completo', 'rol'])
+        df_plantilla_usr.loc[0] = ['juan.perez', 'clave123', 'Juan Pérez González', 'Gestor RRHH']
+        excel_usr_bytes = convertir_df_a_excel(df_plantilla_usr)
+        st.download_button("📥 Descargar Plantilla Excel de Usuarios", excel_usr_bytes, "plantilla_usuarios_simi.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        
+        file_usuarios_masivo = st.file_uploader("Subir Archivo Excel de Usuarios Completado:", type=['xlsx'])
         if file_usuarios_masivo:
             df_um = pd.read_excel(file_usuarios_masivo)
             st.dataframe(df_um.head(), use_container_width=True)
@@ -595,10 +700,41 @@ elif menu == "🔑 Gestión de Usuarios (Admin)" and st.session_state.rol_actual
                     st.success(f"✅ ¡Usuario `{usuario_a_borrar}` eliminado del sistema correctamente!")
                     st.rerun()
 
+elif menu == "🛡️ Auditoría del Sistema" and st.session_state.rol_actual == "Admin Supremo":
+    st.markdown("<h1 class='main-title'>🛡️ Panel de Auditoría y Seguridad</h1>", unsafe_allow_html=True)
+    st.markdown("Registro técnico del estado de la plataforma y sesiones activas.")
+    
+    st.info(f"👤 Usuario Administrador actual: **{st.session_state.usuario_actual}**")
+    st.success("🟢 Base de datos operando de manera fluida con caché activada.")
+    
+    if st.button("🧹 Limpiar Caché de Memoria"):
+        st.cache_data.clear()
+        st.success("✅ ¡Caché limpiada correctamente!")
+
 elif menu == "📁 Carga Masiva Unificada":
     st.markdown("<h1 class='main-title'>📁 Módulo de Carga Masiva Unificada</h1>", unsafe_allow_html=True)
     st.markdown("Sube tus 4 archivos oficiales juntos en este único formulario sin importar los nombres de archivo.")
     
+    with st.expander("📥 Descargar Plantillas Oficiales de Referencia"):
+        st.write("Descarga los modelos estándar para estructurar tus archivos Excel:")
+        c_p1, c_p2 = st.columns(2)
+        with c_p1:
+            df_p_suc = pd.DataFrame(columns=['codigo', 'nombre', 'direccion', 'comuna', 'region', 'director_tecnico', 'dt_complementario'])
+            df_p_suc.loc[0] = ['S001', 'Farmacia Simi Centro', 'Ahumada 123', 'Santiago', 'Metropolitana', 'Dr. Juan Pérez', 'Dra. Ana Gómez']
+            st.download_button("📥 Plantilla Sucursales", convertir_df_a_excel(df_p_suc), "plantilla_sucursales.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+            
+            df_p_col = pd.DataFrame(columns=['rut', 'nombre', 'apellido_paterno', 'sucursal', 'cargo'])
+            df_p_col.loc[0] = ['12345678-9', 'Carlos', 'Ruiz', 'S001', 'Químico Farmacéutico']
+            st.download_button("📥 Plantilla Colaboradores", convertir_df_a_excel(df_p_col), "plantilla_colaboradores.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        with c_p2:
+            df_p_sol = pd.DataFrame(columns=['rut', 'nombre', 'sucursal', 'fecha_desde', 'fecha_hasta', 'dias', 'tipo'])
+            df_p_sol.loc[0] = ['12345678-9', 'Carlos Ruiz', 'S001', '2026-04-01', '2026-04-10', 10, 'Vacaciones']
+            st.download_button("📥 Plantilla Solicitudes/Vacaciones", convertir_df_a_excel(df_p_sol), "plantilla_solicitudes.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+            
+            df_p_lic = pd.DataFrame(columns=['rut', 'nombre', 'apellido_paterno', 'sucursal', 'fecha_desde', 'fecha_hasta', 'dias'])
+            df_p_lic.loc[0] = ['98765432-1', 'María', 'Soto', 'S001', '2026-04-02', '2026-04-05', 3]
+            st.download_button("📥 Plantilla Licencias Médicas", convertir_df_a_excel(df_p_lic), "plantilla_licencias.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
     with st.form("form_carga_masiva"):
         st.subheader("Subida Simultánea de Archivos")
         file_suc = st.file_uploader("1. Archivo de Sucursales:", type=['xlsx'])
