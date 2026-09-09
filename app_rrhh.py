@@ -1,10 +1,12 @@
 import streamlit as st
 import pandas as pd
 import sqlite3
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 import numpy as np
 from streamlit_folium import st_folium
 import folium
+import random
+import string
 
 # ==========================================
 # 1. CONFIGURACIÓN Y OPTIMIZACIÓN INICIAL
@@ -16,7 +18,6 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Base de datos local segura para la nube
 DB_NAME = 'base_rrhh_corporativa.db'
 
 def init_db():
@@ -49,7 +50,6 @@ def init_db():
 
 conn = init_db()
 
-# Funciones ultrarrápidas con caché para optimizar velocidad
 @st.cache_data(ttl=60)
 def cargar_datos_sql(query):
     con_temp = sqlite3.connect(DB_NAME, check_same_thread=False)
@@ -57,13 +57,28 @@ def cargar_datos_sql(query):
     con_temp.close()
     return df
 
+def generar_password_segura(string_longitud=8):
+    letras = string.ascii_letters + string.digits
+    return "".join(random.choice(letras) for i in range(string_longitud))
+
 # ==========================================
-# 2. ESTADOS DE AUTENTICACIÓN
+# 2. CONTROL DE SESIÓN PERSISTENTE Y EXPIRO (3 HORAS)
 # ==========================================
 if 'autenticado' not in st.session_state:
     st.session_state.autenticado = False
     st.session_state.usuario_actual = ""
     st.session_state.rol_actual = ""
+    st.session_state.tiempo_login = None
+
+# Verificación automática de expiración por inactividad (3 Horas)
+TIEMPO_EXPIRACION = timedelta(hours=3)
+if st.session_state.autenticado and st.session_state.tiempo_login:
+    if datetime.now() - st.session_state.tiempo_login > TIEMPO_EXPIRACION:
+        st.session_state.autenticado = False
+        st.session_state.usuario_actual = ""
+        st.session_state.rol_actual = ""
+        st.session_state.tiempo_login = None
+        st.warning("⚠️ Su sesión ha expirado por inactividad (más de 3 horas). Por favor, inicie sesión nuevamente.")
 
 # ==========================================
 # 3. PANTALLA DE LOGIN "WUAO" (GLASSMORPHISM)
@@ -167,6 +182,7 @@ if not st.session_state.autenticado:
                 st.session_state.autenticado = True
                 st.session_state.usuario_actual = res[1]
                 st.session_state.rol_actual = res[2]
+                st.session_state.tiempo_login = datetime.now() # Registrar inicio de sesión
                 st.rerun()
             else:
                 st.error("❌ Credenciales inválidas.")
@@ -222,13 +238,14 @@ menu = st.sidebar.radio("Navegación:", menu_opciones)
 st.sidebar.markdown("---")
 if st.sidebar.button("🚪 Cerrar Sesión", use_container_width=True):
     st.session_state.autenticado = False
+    st.session_state.tiempo_login = None
     st.cache_data.clear()
     st.rerun()
 
 st.sidebar.markdown("<p style='text-align: center; color: #64748b; font-size: 11px; margin-top: 30px;'>Dev: Sebastian Coloma</p>", unsafe_allow_html=True)
 
 # ==========================================
-# 5. MÓDULOS OPTIMIZADOS
+# 5. MÓDULOS CON CONTROL MAESTRO Y ELIMINACIÓN
 # ==========================================
 if menu == "📊 Dashboard Ejecutivo":
     st.markdown("<h1 class='main-title'>💊 Centro de Control Logístico</h1>", unsafe_allow_html=True)
@@ -463,10 +480,22 @@ elif menu == "🔄 Registrar Movimiento / Cobertura":
 
 elif menu == "📋 Historial Corporativo":
     st.markdown("<h1 class='main-title'>📋 Historial de Coberturas y Movimientos</h1>", unsafe_allow_html=True)
+    
+    # Herramienta de eliminación de historial exclusiva para Administradores
+    if st.session_state.rol_actual == "Admin Supremo":
+        with st.expander("⚙️ Zona de Gestión de Historial (Admin Supremo)"):
+            if st.button("🗑️ Eliminar TODO el Historial de Movimientos", type="primary"):
+                c = conn.cursor()
+                c.execute("DELETE FROM movimientos")
+                conn.commit()
+                st.cache_data.clear()
+                st.success("🗑️ ¡Historial eliminado por completo exitosamente!")
+                st.rerun()
+
     filtro_historial = st.text_input("🔍 Buscar en Historial:", "")
 
     query = '''
-        SELECT m.fecha_registro as "Fecha Registro", m.usuario_realiza as "Realizado por", c1.nombre_completo as "Colaborador Movido", 
+        SELECT m.id, m.fecha_registro as "Fecha Registro", m.usuario_realiza as "Realizado por", c1.nombre_completo as "Colaborador Movido", 
                s1.nombre as "Origen", s2.nombre as "Destino", m.motivo as "Motivo", 
                c2.nombre_completo as "Cubrió a", m.fecha_inicio as "Desde", m.fecha_fin as "Hasta", 
                m.nuevo_horario as "Turnos y Jornada Neta"
@@ -488,35 +517,83 @@ elif menu == "📋 Historial Corporativo":
         st.download_button("📥 Descargar Reporte en CSV", csv, "reporte_coberturas_dr_simi.csv", "text/csv")
 
 elif menu == "🔑 Gestión de Usuarios (Admin)" and st.session_state.rol_actual == "Admin Supremo":
-    st.markdown("<h1 class='main-title'>🔑 Panel Maestro: Creación de Usuarios y Accesos</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 class='main-title'>🔑 Panel Maestro: Gestión de Usuarios y Accesos</h1>", unsafe_allow_html=True)
     
-    with st.form("form_nuevo_usuario"):
-        c_u1, c_u2 = st.columns(2)
-        with c_u1:
-            nuevo_user = st.text_input("Nombre de Usuario (Login):")
-            nuevo_pass = st.text_input("Contraseña Temporal:", type="password")
-        with c_u2:
-            nuevo_nombre = st.text_input("Nombre Completo del Colaborador:")
-            nuevo_rol = st.selectbox("Rol en el Sistema:", ["Supervisor Zonal", "Gestor RRHH", "Auditoría Operativa"])
-            
-        submit_usr = st.form_submit_button("➕ Crear Usuario con Acceso", use_container_width=True)
-        if submit_usr:
-            if nuevo_user and nuevo_pass and nuevo_nombre:
-                try:
+    tab_u1, tab_u2, tab_u3 = st.tabs(["➕ Crear Usuario Individual", "📁 Creación Masiva (Excel)", "🗑️ Administrar / Eliminar Usuarios"])
+    
+    with tab_u1:
+        st.subheader("Crear Usuario con Generador de Clave Automática")
+        with st.form("form_nuevo_usuario"):
+            c_u1, c_u2 = st.columns(2)
+            with c_u1:
+                nuevo_user = st.text_input("Nombre de Usuario (Login):")
+                password_sugerida = generar_password_segura()
+                nuevo_pass = st.text_input("Contraseña (Generada o Personalizada):", value=password_sugerida)
+            with c_u2:
+                nuevo_nombre = st.text_input("Nombre Completo del Colaborador:")
+                nuevo_rol = st.selectbox("Rol en el Sistema:", ["Admin Supremo", "Supervisor Zonal", "Gestor RRHH", "Auditoría Operativa"])
+                
+            submit_usr = st.form_submit_button("➕ Registrar Nuevo Usuario", use_container_width=True)
+            if submit_usr:
+                if nuevo_user and nuevo_pass and nuevo_nombre:
+                    try:
+                        c = conn.cursor()
+                        c.execute("INSERT INTO usuarios VALUES (?, ?, ?, ?)", (nuevo_user, nuevo_pass, nuevo_nombre, nuevo_rol))
+                        conn.commit()
+                        st.cache_data.clear()
+                        st.success(f"✅ ¡Usuario `{nuevo_user}` creado con éxito! Clave asignada: `{nuevo_pass}`")
+                    except Exception as e:
+                        st.error(f"⚠️ El usuario ya existe o hubo un error: {e}")
+                else:
+                    st.warning("⚠️ Debes rellenar todos los campos obligatorios.")
+
+    with tab_u2:
+        st.subheader("Carga Masiva de Usuarios vía Excel")
+        st.caption("Sube un archivo Excel con las columnas: `usuario`, `password` (opcional, si se deja en blanco el sistema genera una), `nombre_completo`, `rol`.")
+        
+        file_usuarios_masivo = st.file_uploader("Subir Archivo Excel de Usuarios:", type=['xlsx'])
+        if file_usuarios_masivo:
+            df_um = pd.read_excel(file_usuarios_masivo)
+            st.dataframe(df_um.head(), use_container_width=True)
+            if st.button("🚀 Importar Usuarios Masivamente"):
+                c = conn.cursor()
+                importados = 0
+                for _, row in df_um.iterrows():
+                    u = str(row.get('usuario', '')).strip()
+                    p = str(row.get('password', '')).strip()
+                    if not p or p == 'nan':
+                        p = generar_password_segura()
+                    n = str(row.get('nombre_completo', '')).strip()
+                    r = str(row.get('rol', 'Gestor RRHH')).strip()
+                    
+                    if u and n:
+                        try:
+                            c.execute("INSERT OR REPLACE INTO usuarios VALUES (?, ?, ?, ?)", (u, p, n, r))
+                            importados += 1
+                        except:
+                            pass
+                conn.commit()
+                st.cache_data.clear()
+                st.success(f"✅ ¡Se han importado {importados} usuarios correctamente al sistema!")
+
+    with tab_u3:
+        st.subheader("Gestión y Eliminación de Accesos")
+        df_usuarios = cargar_datos_sql("SELECT usuario, nombre_completo, rol FROM usuarios")
+        st.dataframe(df_usuarios, use_container_width=True)
+        
+        st.markdown("---")
+        usuario_a_borrar = st.selectbox("Seleccione el usuario a eliminar:", options=df_usuarios['usuario'].tolist())
+        if usuario_a_borrar:
+            if usuario_a_borrar == 'admin':
+                st.error("⚠️ No se puede eliminar al Administrador Maestro principal ('admin').")
+            else:
+                if st.button(f"🗑️ Eliminar Definitivamente al Usuario `{usuario_a_borrar}`", type="primary"):
                     c = conn.cursor()
-                    c.execute("INSERT INTO usuarios VALUES (?, ?, ?, ?)", (nuevo_user, nuevo_pass, nuevo_nombre, nuevo_rol))
+                    c.execute("DELETE FROM usuarios WHERE usuario = ?", (usuario_a_borrar,))
                     conn.commit()
                     st.cache_data.clear()
-                    st.success(f"✅ ¡Usuario `{nuevo_user}` creado exitosamente!")
-                except Exception as e:
-                    st.error(f"⚠️ El usuario ya existe o hubo un error: {e}")
-            else:
-                st.warning("⚠️ Debes rellenar todos los campos obligatorios.")
-
-    st.markdown("---")
-    st.subheader("📋 Usuarios Activos en el Sistema")
-    df_usuarios = cargar_datos_sql("SELECT usuario, nombre_completo, rol FROM usuarios")
-    st.dataframe(df_usuarios, use_container_width=True)
+                    st.success(f"✅ ¡Usuario `{usuario_a_borrar}` eliminado del sistema correctamente!")
+                    st.rerun()
 
 elif menu == "📁 Carga Masiva Unificada":
     st.markdown("<h1 class='main-title'>📁 Módulo de Carga Masiva Unificada</h1>", unsafe_allow_html=True)
