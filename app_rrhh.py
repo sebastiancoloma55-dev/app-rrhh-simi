@@ -10,7 +10,7 @@ import string
 import io
 
 # ==========================================
-# 1. CONFIGURACIÓN Y OPTIMIZACIÓN INICIAL
+# 1. CONFIGURACIÓN Y OCULTACIÓN DE ELEMENTOS
 # ==========================================
 st.set_page_config(
     page_title="Gestión Corporativa de Coberturas | Dr. Simi",
@@ -18,6 +18,23 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+st.markdown("""
+<style>
+    /* Ocultar barra superior, menú desplegable y botón flotante Manage app */
+    #MainMenu {visibility: hidden !important;}
+    header {visibility: hidden !important;}
+    footer {visibility: hidden !important;}
+    .stApp > header {display: none !important;}
+    div[data-testid="stToolbar"] {display: none !important;}
+    button[kind="header"] {display: none !important;}
+    .viewerBadge_container__1QSob {display: none !important;}
+    div.celestial-button, div[data-testid="manage-app-button"], div.viewerBadge_link__qRIco {
+        display: none !important;
+        visibility: hidden !important;
+    }
+</style>
+""", unsafe_allow_html=True)
 
 DB_NAME = 'base_rrhh_corporativa.db'
 
@@ -72,14 +89,24 @@ def convertir_df_a_excel(df):
     return processed_data
 
 # ==========================================
-# 2. CONTROL DE SESIÓN PERSISTENTE Y 3 HORAS
+# 2. PERSISTENCIA DE SESIÓN POR URL (EVITA PÉRDIDA EN RECARGA)
 # ==========================================
-if 'autenticado' not in st.session_state:
-    st.session_state.autenticado = False
-    st.session_state.usuario_actual = ""
-    st.session_state.rol_actual = ""
-    st.session_state.tiempo_login = None
+params = st.query_params
 
+if 'autenticado' not in st.session_state:
+    # Si la URL trae un token de sesión activo, lo restauramos automáticamente
+    if "sesion_activa" in params and "usuario" in params and "rol" in params:
+        st.session_state.autenticado = True
+        st.session_state.usuario_actual = params["usuario"]
+        st.session_state.rol_actual = params["rol"]
+        st.session_state.tiempo_login = datetime.now()
+    else:
+        st.session_state.autenticado = False
+        st.session_state.usuario_actual = ""
+        st.session_state.rol_actual = ""
+        st.session_state.tiempo_login = None
+
+# Control de tiempo de expiración (3 horas exactas)
 TIEMPO_EXPIRACION = timedelta(hours=3)
 if st.session_state.autenticado and st.session_state.tiempo_login:
     if datetime.now() - st.session_state.tiempo_login > TIEMPO_EXPIRACION:
@@ -87,6 +114,7 @@ if st.session_state.autenticado and st.session_state.tiempo_login:
         st.session_state.usuario_actual = ""
         st.session_state.rol_actual = ""
         st.session_state.tiempo_login = None
+        st.query_params.clear() # Limpiar parámetros de la URL
         st.warning("⚠️ Su sesión ha expirado por inactividad (más de 3 horas). Por favor, inicie sesión nuevamente.")
 
 # ==========================================
@@ -192,6 +220,10 @@ if not st.session_state.autenticado:
                 st.session_state.usuario_actual = res[1]
                 st.session_state.rol_actual = res[2]
                 st.session_state.tiempo_login = datetime.now()
+                # Fijar parámetros en la URL para que la recarga (F5) mantenga la sesión viva
+                st.query_params["sesion_activa"] = "1"
+                st.query_params["usuario"] = res[1]
+                st.query_params["rol"] = res[2]
                 st.rerun()
             else:
                 st.error("❌ Credenciales inválidas.")
@@ -259,6 +291,7 @@ st.sidebar.markdown("---")
 if st.sidebar.button("🚪 Cerrar Sesión", use_container_width=True):
     st.session_state.autenticado = False
     st.session_state.tiempo_login = None
+    st.query_params.clear() # Limpiar parámetros de la URL al salir
     st.cache_data.clear()
     st.rerun()
 
