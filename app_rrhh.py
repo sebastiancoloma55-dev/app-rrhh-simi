@@ -903,6 +903,11 @@ if not st.session_state.autenticado:
 # -------------------------
 # Sidebar
 # -------------------------
+def set_navigation(target):
+    if target in menu:
+        st.session_state.menu_principal = target
+        st.session_state.navigate_to = None
+
 st.sidebar.markdown(
     """
     <div class="brand">
@@ -950,13 +955,21 @@ if "navigate_to" not in st.session_state:
     st.session_state.navigate_to = None
 
 if st.session_state.navigate_to in menu:
-    st.session_state.menu_principal = st.session_state.navigate_to
+    # Se usa una clave temporal para que el radio arranque en el destino.
+    st.session_state.nav_radio_default = st.session_state.navigate_to
     st.session_state.navigate_to = None
 
-if "menu_principal" not in st.session_state or st.session_state.menu_principal not in menu:
-    st.session_state.menu_principal = menu[0]
+if "nav_radio_default" not in st.session_state or st.session_state.nav_radio_default not in menu:
+    st.session_state.nav_radio_default = menu[0]
 
-opcion = st.sidebar.radio("Navegación", menu, key="menu_principal")
+opcion = st.sidebar.radio(
+    "Navegación",
+    menu,
+    index=menu.index(st.session_state.nav_radio_default),
+    key="nav_radio",
+)
+# Sincronizamos el destino elegido manualmente.
+st.session_state.nav_radio_default = opcion
 
 st.sidebar.markdown("---")
 st.sidebar.markdown(
@@ -1076,13 +1089,13 @@ if opcion == "🏠 Inicio / Dashboard":
                     unsafe_allow_html=True
                 )
                 # El botón usa el icono + nombre como acceso directo.
-                if st.button(f"{icon}  IR A {title.upper()}", key=f"quick_{title}", use_container_width=True):
-                    if target in menu:
-                        # st.radio con key='menu_principal' conserva su estado.
-                        # Seteándolo directamente garantizamos el cambio.
-                        st.session_state.menu_principal = target
-                        st.session_state.navigate_to = None
-                        st.rerun()
+                st.button(
+                    f"{icon}  IR A {title.upper()}",
+                    key=f"quick_{title}",
+                    use_container_width=True,
+                    on_click=set_navigation,
+                    args=(target,),
+                )
 
     st.markdown('<div class="section">🚨 Alertas de Ausentismo y Continuidad</div>', unsafe_allow_html=True)
 
