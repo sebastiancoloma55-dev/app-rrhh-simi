@@ -85,170 +85,137 @@ st.markdown(
     """
     <style>
     :root{
-      --navy:#062543; --navy2:#0b355c; --blue:#1f5bd5;
-      --blue2:#eaf2ff; --bg:#f4f7fb; --text:#142a40; --muted:#687b8f;
-      --border:#d8e2ec; --white:#ffffff; --green:#198754; --yellow:#b7791f; --red:#c53030;
+      --green:#0f5f49; --green2:#156f56; --green3:#1e7d61; --mint:#edf7f2;
+      --blue:#1e5bd8; --navy:#08233f; --text:#173228; --muted:#6a7f78;
+      --border:#d6e5de; --white:#ffffff; --soft:#f6faf8;
+      --red:#c83d3d; --yellow:#b77a16;
     }
-
     #MainMenu, footer, header {visibility:hidden;}
-    .stApp{background:var(--bg) !important;color:var(--text) !important;}
+    .stApp{background:var(--mint) !important;color:var(--text) !important;}
+    .block-container{max-width:1480px;padding-top:1.25rem;padding-bottom:2.5rem;}
+
+    /* Sidebar */
     section[data-testid="stSidebar"]{
-      background:linear-gradient(180deg,var(--navy) 0%,var(--navy2) 100%) !important;
+      background:linear-gradient(180deg,#0f5f49 0%,#135f4c 55%,#176651 100%) !important;
       border-right:1px solid rgba(255,255,255,.08);
     }
     section[data-testid="stSidebar"] *{color:#fff !important;}
-    .block-container{max-width:1480px;padding-top:1.7rem;padding-bottom:2.5rem;}
+    .brand{
+      padding:6px 5px 17px;text-align:center;
+      border-bottom:1px solid rgba(255,255,255,.17);margin-bottom:14px;
+    }
+    .brand-title{font-size:25px;font-weight:950;letter-spacing:1.5px;color:#fff;}
+    .brand-sub{font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#dff6ec;}
+    section[data-testid="stSidebar"] .stRadio label{font-weight:650 !important;}
+    section[data-testid="stSidebar"] .stButton > button{
+      background:#fff !important;color:var(--green) !important;border:0 !important;
+      border-radius:9px !important;font-weight:850 !important;
+    }
+    section[data-testid="stSidebar"] .stButton > button *,
+    section[data-testid="stSidebar"] .stButton > button span{
+      color:var(--green) !important;
+    }
+    section[data-testid="stSidebar"] .stButton > button:hover{background:#eef9f4 !important;}
 
-    /* Executive header / text */
-    .title{font-size:32px;font-weight:850;line-height:1.15;color:var(--navy) !important;margin:0 0 4px 0;}
-    .subtitle{font-size:14px;color:var(--muted) !important;margin:0 0 22px 0;}
-    h1,h2,h3,h4,h5,h6{color:var(--navy) !important;}
+    /* Main headers */
+    .title{font-size:31px;font-weight:900;line-height:1.08;color:var(--green) !important;margin:0 0 3px;}
+    .subtitle{font-size:13px;color:var(--muted) !important;margin:0 0 20px;}
+    h1,h2,h3,h4,h5,h6{color:var(--green) !important;}
     .section{
-      background:var(--navy);color:#fff !important;border-radius:11px;
-      padding:12px 16px;margin:18px 0 12px 0;font-weight:800;
-      box-shadow:0 3px 12px rgba(6,37,67,.10);
+      background:var(--green);color:#fff !important;border-radius:11px;
+      padding:12px 16px;margin:17px 0 12px;font-weight:850;
+      box-shadow:0 4px 12px rgba(15,95,73,.09);
     }
     .section *{color:#fff !important;}
 
-    /* Sidebar */
-    .brand{padding:10px 5px 18px;text-align:center;border-bottom:1px solid rgba(255,255,255,.16);margin-bottom:16px;}
-    .brand-title{font-size:25px;font-weight:950;letter-spacing:1.3px;color:#fff;}
-    .brand-sub{font-size:10px;font-weight:700;opacity:.78;letter-spacing:1.2px;text-transform:uppercase;color:#dbeafe;}
-    section[data-testid="stSidebar"] .stRadio label{font-weight:600 !important;}
-    section[data-testid="stSidebar"] .stButton > button{
-      background:#fff !important;color:var(--navy) !important;border:1px solid #dce6f0 !important;
-      font-weight:800 !important;border-radius:9px !important;
+    /* Cards */
+    .card{
+      background:#fff;border:1px solid var(--border);border-radius:15px;
+      padding:17px;box-shadow:0 5px 18px rgba(19,69,53,.055);height:100%;
     }
-    section[data-testid="stSidebar"] .stButton > button:hover{background:#edf4ff !important;color:var(--navy) !important;}
-    section[data-testid="stSidebar"] .stButton > button,
-    section[data-testid="stSidebar"] .stButton > button *,
-    section[data-testid="stSidebar"] .stButton > button span{
-      color:var(--navy) !important;
+    .metric-label{font-size:11px;color:#647a72 !important;text-transform:uppercase;letter-spacing:.35px;}
+    .metric-value{font-size:30px;font-weight:950;color:var(--green) !important;margin-top:5px;}
+    .metric-note{font-size:10px;color:#83958f !important;margin-top:2px;}
+
+    /* Inputs */
+    label,[data-testid="stWidgetLabel"] *,.stMarkdown p{color:var(--text) !important;}
+    .stTextInput input,.stTextArea textarea,.stNumberInput input,
+    .stDateInput input,.stTimeInput input{
+      color:var(--text) !important;background:#f8fbf9 !important;
+      border:1.5px solid #a7bcb3 !important;border-radius:8px !important;
+      box-shadow:inset 0 1px 2px rgba(15,95,73,.035) !important;
     }
-
-    /* Cards / metrics */
-    .card{background:#fff;border:1px solid var(--border);border-radius:15px;padding:18px;height:100%;
-      box-shadow:0 5px 18px rgba(16,42,67,.055);}
-    .metric-label{font-size:12px;color:#5d7084 !important;}
-    .metric-value{font-size:29px;font-weight:900;color:var(--navy) !important;margin-top:5px;}
-    .metric-note{font-size:10px;color:#8393a5 !important;margin-top:2px;}
-
-    /* Inputs, selects, textareas - visibles y ejecutivos */
-    label,[data-testid="stWidgetLabel"] *, .stMarkdown p{color:var(--text) !important;}
-
-    .stTextInput input,
-    .stTextArea textarea,
-    .stNumberInput input,
-    .stDateInput input,
-    .stTimeInput input,
-    .stSelectbox input {
-      color:var(--text) !important;
-      background:#f4f8fc !important;
-      border:1.5px solid #9fb3c7 !important;
-      border-radius:9px !important;
-      box-shadow:inset 0 1px 2px rgba(6,37,67,.04) !important;
+    .stTextInput input:hover,.stTextArea textarea:hover,.stNumberInput input:hover,
+    .stDateInput input:hover,.stTimeInput input:hover{
+      background:#f1f8f4 !important;border-color:#739589 !important;
     }
-
-    .stTextInput input:hover,
-    .stTextArea textarea:hover,
-    .stNumberInput input:hover,
-    .stDateInput input:hover,
-    .stTimeInput input:hover,
-    .stSelectbox input:hover {
-      background:#eef5fb !important;
-      border-color:#718da8 !important;
+    .stTextInput input:focus,.stTextArea textarea:focus,.stNumberInput input:focus,
+    .stDateInput input:focus,.stTimeInput input:focus{
+      background:#fff !important;border:2px solid var(--green2) !important;
+      box-shadow:0 0 0 2px rgba(21,111,86,.10) !important;
     }
+    input::placeholder,textarea::placeholder{color:#81948d !important;opacity:1 !important;}
 
-    .stTextInput input:focus,
-    .stTextArea textarea:focus,
-    .stNumberInput input:focus,
-    .stDateInput input:focus,
-    .stTimeInput input:focus {
-      background:#ffffff !important;
-      border:2px solid var(--blue) !important;
-      box-shadow:0 0 0 2px rgba(31,91,213,.10) !important;
-    }
-
-    input::placeholder,textarea::placeholder{color:#788b9f !important;opacity:1 !important;}
-
-    /* Selectores */
     div[data-baseweb="select"] > div{
-      min-height:42px !important;
-      background:#f4f8fc !important;
-      color:var(--text) !important;
-      border:1.5px solid #9fb3c7 !important;
-      border-radius:9px !important;
-      box-shadow:inset 0 1px 2px rgba(6,37,67,.04) !important;
-    }
-    div[data-baseweb="select"] > div:hover{
-      background:#eef5fb !important;
-      border-color:#718da8 !important;
+      min-height:40px !important;background:#f8fbf9 !important;color:var(--text) !important;
+      border:1.5px solid #a7bcb3 !important;border-radius:8px !important;
     }
     div[data-baseweb="select"] *{color:var(--text) !important;}
     div[data-baseweb="popover"],div[role="listbox"],ul[role="listbox"]{
-      background:#ffffff !important;
-      border:1px solid #c6d4e2 !important;
-      box-shadow:0 10px 30px rgba(16,42,67,.14) !important;
+      background:#fff !important;border:1px solid #cbdad4 !important;
+      box-shadow:0 10px 28px rgba(15,95,73,.15) !important;
     }
-    div[role="option"]{background:#ffffff !important;color:var(--text) !important;}
-    div[role="option"]:hover{background:#eaf2ff !important;color:var(--navy) !important;}
-
-    /* Date/Time controls */
-    [data-testid="stDateInput"] button,
-    [data-testid="stTimeInput"] button{
-      color:var(--navy) !important;
-      background:#e8f0f8 !important;
-      border-left:1px solid #9fb3c7 !important;
-    }
-
-    /* Checkboxes / radios */
-    [data-testid="stCheckbox"] label,
-    [data-testid="stRadio"] label {color:var(--text) !important;}
-    [data-testid="stCheckbox"] input:checked + div,
-    [data-testid="stRadio"] input:checked + div{
-      border-color:var(--blue) !important;
-      background:var(--blue) !important;
-    }
+    div[role="option"]{background:#fff !important;color:var(--text) !important;}
+    div[role="option"]:hover{background:#eaf6f0 !important;color:var(--green) !important;}
 
     /* Buttons */
     .stButton > button,.stDownloadButton > button{
-      background:var(--navy) !important;color:#fff !important;border:1px solid var(--navy) !important;
-      border-radius:9px !important;font-weight:800 !important;min-height:40px;
+      background:var(--green) !important;color:#fff !important;
+      border:1px solid var(--green) !important;border-radius:8px !important;
+      font-weight:850 !important;min-height:40px;
     }
     .stButton > button:hover,.stDownloadButton > button:hover{
-      background:#10436d !important;color:#fff !important;border-color:#10436d !important;
+      background:var(--green2) !important;color:#fff !important;border-color:var(--green2) !important;
     }
     .stFormSubmitButton > button{
-      background:var(--blue) !important;color:#fff !important;border-color:var(--blue) !important;
-      font-weight:900 !important;min-height:44px !important;
+      background:var(--green2) !important;color:#fff !important;border-color:var(--green2) !important;
+      font-weight:900 !important;min-height:43px !important;
     }
-    .stFormSubmitButton > button:hover{background:#1848ab !important;color:#fff !important;}
+    .stFormSubmitButton > button:hover{background:#0f5f49 !important;color:#fff !important;}
 
     /* Forms */
     div[data-testid="stForm"]{
-      background:#fff !important;border:1px solid var(--border) !important;border-radius:16px !important;
-      padding:23px !important;box-shadow:0 9px 28px rgba(16,42,67,.07) !important;
+      background:#fff !important;border:1px solid var(--border) !important;border-radius:15px !important;
+      padding:21px !important;box-shadow:0 8px 24px rgba(19,69,53,.055) !important;
     }
     div[data-testid="stForm"] label,div[data-testid="stForm"] p{color:var(--text) !important;}
 
-    /* Dataframe */
-    [data-testid="stDataFrame"]{background:#fff !important;border:1px solid var(--border) !important;border-radius:10px !important;overflow:hidden;}
+    /* Tables */
+    [data-testid="stDataFrame"]{
+      background:#fff !important;border:1px solid var(--border) !important;
+      border-radius:10px !important;overflow:hidden;
+    }
+
+    /* Executive greeting */
+    .welcome-card{
+      background:linear-gradient(135deg,#0f5f49 0%,#1c755b 100%);
+      color:#fff;border-radius:18px;padding:24px 26px;margin:6px 0 18px;
+      box-shadow:0 10px 28px rgba(15,95,73,.16);
+    }
+    .welcome-title{font-size:28px;font-weight:900;line-height:1.05;}
+    .welcome-sub{font-size:13px;color:#d9f4e9;margin-top:8px;}
+    .welcome-chip{
+      display:inline-block;margin-top:14px;padding:7px 11px;border-radius:999px;
+      background:rgba(255,255,255,.13);border:1px solid rgba(255,255,255,.18);
+      font-size:11px;font-weight:750;
+    }
+
     .alert-note{
-      display:inline-block;padding:7px 12px;border-radius:20px;font-size:12px;font-weight:800;
-      margin:0 6px 8px 0;border:1px solid #d7e1eb;background:#f8fafc;color:#34495e;
+      display:inline-block;padding:7px 12px;border-radius:20px;font-size:12px;font-weight:850;
+      margin:0 6px 8px 0;border:1px solid #d5e3dc;background:#f9fcfa;color:#344e43;
     }
     .alert-danger{background:#ffe3e3;color:#8b1e1e;border-color:#f2b8b8;}
     .alert-warning{background:#fff0c2;color:#805b00;border-color:#edd38a;}
-
-    /* Login - all real Streamlit widgets stay inside the centered column */
-    .login-page-bg{
-      background:radial-gradient(circle at 84% 10%,#1c4a78 0%,#0a2038 40%,#020b18 100%) !important;
-      min-height:100vh !important;
-    }
-    .login-brand-main{text-align:center;color:#fff;font-size:42px;font-weight:950;letter-spacing:2.2px;margin:2vh 0 2px;}
-    .login-brand-line{width:58px;height:3px;background:#4d7ff0;margin:9px auto 11px;border-radius:3px;}
-    .login-brand-sub{text-align:center;color:#c1d2e5;font-size:12px;letter-spacing:2px;text-transform:uppercase;margin-bottom:20px;}
-    .login-small{text-align:center;color:#9eb2c7;font-size:11px;margin-top:15px;}
     </style>
     """,
     unsafe_allow_html=True,
@@ -258,8 +225,14 @@ st.markdown(
 # -------------------------
 # Database
 # -------------------------
+@st.cache_resource
 def db():
-    return sqlite3.connect(DB_NAME, check_same_thread=False)
+    con = sqlite3.connect(DB_NAME, check_same_thread=False)
+    con.execute("PRAGMA journal_mode=WAL")
+    con.execute("PRAGMA synchronous=NORMAL")
+    con.execute("PRAGMA temp_store=MEMORY")
+    con.execute("PRAGMA cache_size=-20000")
+    return con
 
 
 def ensure_columns(cur, table_name, columns):
@@ -604,7 +577,6 @@ def audit(action: str, detail: str = ""):
             (datetime.now(), st.session_state.get("usuario_actual", ""), action, detail),
         )
         con.commit()
-        con.close()
     except Exception:
         pass
 
@@ -615,13 +587,10 @@ conn = init_db()
 # -------------------------
 # Helpers
 # -------------------------
-@st.cache_data(ttl=45)
+@st.cache_data(ttl=180)
 def query_df(sql, params=()):
     con = db()
-    try:
-        return pd.read_sql_query(sql, con, params=params)
-    finally:
-        con.close()
+    return pd.read_sql_query(sql, con, params=params)
 
 
 def execute(sql, params=()):
@@ -629,7 +598,6 @@ def execute(sql, params=()):
     cur = con.cursor()
     cur.execute(sql, params)
     con.commit()
-    con.close()
 
 
 def excel_bytes(df, sheet_name="Reporte"):
@@ -690,13 +658,10 @@ def set_config(key, value):
 
 def download_backup():
     con = db()
-    out = io.BytesIO()
-    # SQLite online backup hacia una base temporal en disco.
     tmp = UPLOAD_DIR / f"backup_{datetime.now():%Y%m%d_%H%M%S}.db"
     target = sqlite3.connect(str(tmp))
     con.backup(target)
     target.close()
-    con.close()
     return tmp
 
 
@@ -1025,9 +990,21 @@ def page_title(title, subtitle=""):
 # DASHBOARD
 # ============================================================
 if opcion == "🏠 Inicio / Dashboard":
+    now_hour = datetime.now().hour
+    saludo = "Buenos días" if now_hour < 12 else ("Buenas tardes" if now_hour < 20 else "Buenas noches")
+    st.markdown(
+        f"""
+        <div class="welcome-card">
+            <div class="welcome-title">¡Bienvenido/a, {st.session_state.usuario_actual}! 👋</div>
+            <div class="welcome-sub">{saludo} · ¿Cómo estás? Aquí tienes el resumen operativo de hoy.</div>
+            <div class="welcome-chip">Portal Corporativo · RRHH · Dr. Simi</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
     page_title(
-        "Centro de Control RRHH",
-        f"Bienvenido/a, {st.session_state.usuario_actual}. Resumen operacional.",
+        "Resumen general",
+        "Visión ejecutiva de personas, ausentismo, coberturas y operación.",
     )
 
     tot_suc = int(query_df("SELECT COUNT(*) n FROM sucursales").iloc[0, 0])
@@ -1172,9 +1149,22 @@ elif opcion == "👥 Personas":
 
         opciones = df["RUT"].tolist()
         if opciones:
-            rut = st.selectbox("Seleccionar colaborador", opciones)
+            label_map = dict(zip(df["RUT"].astype(str), df["Colaborador"].astype(str)))
+            rut = st.selectbox(
+                "Seleccionar colaborador",
+                opciones,
+                format_func=lambda x: f"{label_map.get(str(x), str(x))} · {str(x)}",
+            )
             persona = query_df("""
-                SELECT c.*, s.nombre sucursal_nombre, s.region, s.comuna
+                SELECT
+                    c.rut, c.nombre_completo, c.cargo, c.jornada_horas,
+                    c.celular, c.email, c.activo,
+                    c.sucursal_bm,
+                    c.sucursal_nombre AS sucursal_directorio,
+                    c.codigo_sucursal,
+                    s.nombre AS sucursal_nombre,
+                    s.region AS region,
+                    s.comuna AS comuna
                 FROM colaboradores c
                 LEFT JOIN sucursales s ON c.codigo_sucursal=s.codigo
                 WHERE c.rut=?
@@ -1189,8 +1179,8 @@ elif opcion == "👥 Personas":
 
             a, b, c = st.columns(3)
             a.write(f"**RUT:** {r['rut']}")
-            b.write(f"**Sucursal BM:** {r.get('sucursal_bm') or r.get('sucursal_nombre') or 'Sin informar'}")
-            c.write(f"**Sucursal Directorio:** {r.get('sucursal_nombre') or 'Sin cruce'}")
+            b.write(f"**Sucursal BM:** {r['sucursal_bm'] or r['sucursal_nombre'] or 'Sin informar'}")
+            c.write(f"**Sucursal Directorio:** {r['sucursal_nombre'] or 'Sin cruce'}")
             st.write(f"**Contacto:** {r['celular'] or '-'} · {r['email'] or '-'}")
 
             t1, t2, t3, t4 = st.tabs(["Asistencia", "Licencias", "Vacaciones", "Coberturas"])
