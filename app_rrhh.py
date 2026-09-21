@@ -945,15 +945,18 @@ if st.session_state.rol_actual == "Admin Supremo":
 
 menu.append("ℹ️ Ayuda")
 
-# Navegación programática para acciones como "Programar cobertura".
+# Navegación programática y sincronizada con accesos rápidos.
 if "navigate_to" not in st.session_state:
     st.session_state.navigate_to = None
-default_index = 0
+
 if st.session_state.navigate_to in menu:
-    default_index = menu.index(st.session_state.navigate_to)
+    st.session_state.menu_principal = st.session_state.navigate_to
     st.session_state.navigate_to = None
 
-opcion = st.sidebar.radio("Navegación", menu, index=default_index, key="menu_principal")
+if "menu_principal" not in st.session_state or st.session_state.menu_principal not in menu:
+    st.session_state.menu_principal = menu[0]
+
+opcion = st.sidebar.radio("Navegación", menu, key="menu_principal")
 
 st.sidebar.markdown("---")
 st.sidebar.markdown(
@@ -1042,7 +1045,7 @@ if opcion == "🏠 Inicio / Dashboard":
     # ========================================================
     # Accesos ejecutivos a los módulos
     # ========================================================
-    st.markdown('<div class="section">📌 Accesos rápidos</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section">📌 Accesos rápidos</div><div style="font-size:12px;color:#6a7f78;margin:-5px 0 10px;">Seleccione el módulo para entrar directamente.</div>', unsafe_allow_html=True)
     accesos = [
         ("👥", "Personas", "Ficha y búsqueda de colaboradores", "👥 Personas"),
         ("🕐", "Asistencia", "Control diario y jornadas", "🕐 Asistencia"),
@@ -1063,18 +1066,22 @@ if opcion == "🏠 Inicio / Dashboard":
                 st.markdown(
                     f"""
                     <div style="background:#ffffff;border:1px solid #d6e5de;border-radius:14px;
-                                padding:15px 16px;margin-bottom:10px;min-height:88px;
+                                padding:13px 15px 9px;margin-bottom:7px;min-height:75px;
                                 box-shadow:0 4px 13px rgba(15,95,73,.05);">
-                        <div style="font-size:22px;margin-bottom:4px;">{icon}</div>
+                        <div style="font-size:21px;margin-bottom:3px;">{icon}</div>
                         <div style="font-size:15px;font-weight:850;color:#0f5f49;">{title}</div>
                         <div style="font-size:11px;color:#71837c;margin-top:3px;">{desc}</div>
                     </div>
                     """,
                     unsafe_allow_html=True
                 )
-                if st.button(f"ABRIR {title.upper()}", key=f"quick_{title}", use_container_width=True):
+                # El botón usa el icono + nombre como acceso directo.
+                if st.button(f"{icon}  IR A {title.upper()}", key=f"quick_{title}", use_container_width=True):
                     if target in menu:
-                        st.session_state.navigate_to = target
+                        # st.radio con key='menu_principal' conserva su estado.
+                        # Seteándolo directamente garantizamos el cambio.
+                        st.session_state.menu_principal = target
+                        st.session_state.navigate_to = None
                         st.rerun()
 
     st.markdown('<div class="section">🚨 Alertas de Ausentismo y Continuidad</div>', unsafe_allow_html=True)
