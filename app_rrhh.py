@@ -225,9 +225,8 @@ st.markdown(
 # -------------------------
 # Database
 # -------------------------
-@st.cache_resource
 def db():
-    con = sqlite3.connect(DB_NAME, check_same_thread=False)
+    con = sqlite3.connect(DB_NAME, check_same_thread=False, timeout=30)
     con.execute("PRAGMA journal_mode=WAL")
     con.execute("PRAGMA synchronous=NORMAL")
     con.execute("PRAGMA temp_store=MEMORY")
@@ -532,7 +531,7 @@ def init_db():
         )
 
     con.commit()
-    return con
+    con.close()
 
 
 
@@ -581,8 +580,8 @@ def audit(action: str, detail: str = ""):
         pass
 
 
-# Database connection is initialized only after security helpers exist.
-conn = init_db()
+# Initialize/migrate the local database.
+init_db()
 
 # -------------------------
 # Helpers
