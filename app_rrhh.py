@@ -114,20 +114,25 @@ st.markdown(
     .status-ok {color:#166534;font-weight:700;}
     .status-warn {color:#a16207;font-weight:700;}
     .status-bad {color:#b91c1c;font-weight:700;}
-    .login-wrap {
-        max-width:470px;margin:8vh auto 0 auto;padding:38px;
-        background:rgba(255,255,255,.95);border-radius:24px;
-        box-shadow:0 25px 70px rgba(15,23,42,.25);
-        border:1px solid rgba(226,232,240,.8);
+    .login-shell {
+        min-height:calc(100vh - 20px);
+        margin:-2rem -1rem -3rem -1rem;
+        padding:34px 20px 70px 20px;
+        display:flex;
+        justify-content:center;
+        align-items:flex-start;
+        background:radial-gradient(circle at 78% 18%,#1f4774 0,#0b1d32 36%,#020617 100%);
     }
-    .login-page {
-        min-height:100vh;
-        background: radial-gradient(circle at top right,#173d68 0,#09182a 38%,#020617 100%);
-        margin:-2rem;
-        padding:1px 20px 60px 20px;
+    .login-card {
+        width:min(520px,100%);
+        margin-top:8vh;
+        padding:34px;
+        background:rgba(255,255,255,.98);
+        border-radius:24px;
+        box-shadow:0 28px 80px rgba(0,0,0,.35);
+        border:1px solid rgba(255,255,255,.16);
     }
-    .login-logo {text-align:center;color:#fff;font-size:42px;font-weight:950;letter-spacing:2px;margin-top:45px;}
-    .login-tag {text-align:center;color:#b8c7d9;font-size:13px;letter-spacing:2px;text-transform:uppercase;margin-bottom:20px;}
+    .login-wrap {width:100%;}
     .small-muted {font-size:11px;color:#94a3b8;}
     </style>
     """,
@@ -275,6 +280,12 @@ def init_db():
         )
     """)
 
+    # Migración compatible con la versión anterior, que no tenía columna activo.
+    cols_usuarios = [row[1] for row in cur.execute("PRAGMA table_info(usuarios)").fetchall()]
+    if "activo" not in cols_usuarios:
+        cur.execute("ALTER TABLE usuarios ADD COLUMN activo INTEGER DEFAULT 1")
+
+
     cur.execute("""
         CREATE TABLE IF NOT EXISTS auditoria (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -298,6 +309,16 @@ def init_db():
             "INSERT INTO usuarios VALUES (?,?,?,?,?)",
             ("admin", hash_password("simi2026"), "Administrador Maestro RRHH", "Admin Supremo", 1),
         )
+    else:
+        # Mantener compatibilidad con el admin creado por la versión antigua.
+        admin_row = cur.execute(
+            "SELECT password,activo FROM usuarios WHERE usuario='admin'"
+        ).fetchone()
+        if admin_row and admin_row[0] == "simi2026":
+            cur.execute(
+                "UPDATE usuarios SET password=?, activo=1 WHERE usuario='admin'",
+                (hash_password("simi2026"),)
+            )
 
     defaults = {
         "jornada_qf": "40",
@@ -488,9 +509,11 @@ if "autenticado" not in st.session_state:
 if not st.session_state.autenticado:
     st.markdown(
         """
-        <div class="login-page">
-            <div class="login-logo">DR. SIMI</div>
-            <div class="login-tag">Portal Corporativo de Gestión RRHH</div>
+        <div class="login-shell">
+          <div class="login-card">
+            <div class="login-logo" style="color:#08233f;margin-top:0;font-size:38px;text-align:center;">DR. SIMI</div>
+            <div class="login-tag" style="color:#64748b;text-align:center;margin-bottom:22px;">Portal Corporativo de Gestión RRHH</div>
+          </div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -501,21 +524,28 @@ if not st.session_state.autenticado:
         st.error("Acceso temporalmente bloqueado por múltiples intentos fallidos.")
         st.stop()
 
-    st.markdown('<div class="login-wrap">', unsafe_allow_html=True)
+    st.markdown('<div class="login-shell"><div class="login-card">', unsafe_allow_html=True)
+    st.markdown(
+        "<div style='text-align:center;margin-bottom:22px;'>"
+        "<div style='font-size:34px;font-weight:950;color:#08233f;letter-spacing:2px;'>DR. SIMI</div>"
+        "<div style='height:3px;width:58px;background:#1d4ed8;margin:10px auto 12px auto;'></div>"
+        "<div style='font-size:12px;color:#64748b;letter-spacing:1.8px;text-transform:uppercase;'>Portal Corporativo de Gestión RRHH</div>"
+        "</div>",
+        unsafe_allow_html=True,
+    )
     st.markdown("### 🔐 Identificación segura")
     st.caption("Ingrese sus credenciales corporativas para acceder al portal.")
 
     with st.form("login_form", clear_on_submit=False):
-        usuario = st.text_input("Usuario", placeholder="Ingrese su usuario")
-        password = st.text_input("Contraseña", type="password", placeholder="Ingrese su contraseña")
-        recordar = st.checkbox("Mantener la sesión activa mientras permanezca en esta pestaña")
+        usuario = st.text_input("Usuario", placeholder="Ingrese su usuario", autocomplete="username")
+        password = st.text_input("Contraseña", type="password", placeholder="Ingrese su contraseña", autocomplete="current-password")
         ingresar = st.form_submit_button("INGRESAR AL PORTAL", use_container_width=True)
 
     st.markdown(
-        '<div class="small-muted" style="text-align:center;">Portal interno · RRHH · Dr. Simi</div>',
+        '<div class="small-muted" style="text-align:center;margin-top:16px;">Acceso interno · Recursos Humanos · Dr. Simi</div>',
         unsafe_allow_html=True,
     )
-    st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown("</div></div>", unsafe_allow_html=True)
 
     if ingresar:
         con = db()
@@ -526,6 +556,8 @@ if not st.session_state.autenticado:
         con.close()
 
         if row and row[4] == 1 and verify_password(password, row[1]):
+            if not str(row[1]).startswith("pbkdf2_sha256$"):
+                execute("UPDATE usuarios SET password=? WHERE usuario=?", (hash_password(password), row[0]))
             st.session_state.autenticado = True
             st.session_state.usuario_actual = row[2]
             st.session_state.usuario_login = row[0]
