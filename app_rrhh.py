@@ -989,6 +989,16 @@ if st.sidebar.button("🚪 CERRAR SESIÓN", use_container_width=True):
 
 
 def page_title(title, subtitle=""):
+    # Navegación de retorno siempre visible, incluso con el sidebar colapsado.
+    if st.session_state.get("current_page") != "🏠 Inicio / Dashboard":
+        st.button(
+            "← VOLVER AL INICIO",
+            key=f"back_home_{title}",
+            use_container_width=False,
+            on_click=set_navigation,
+            args=("🏠 Inicio / Dashboard",),
+        )
+
     st.markdown(
         f"""
         <div style="display:flex;justify-content:space-between;align-items:flex-end;
