@@ -6,6 +6,7 @@ import io
 import hashlib
 import secrets
 import json
+import re
 import unicodedata
 from streamlit_folium import st_folium
 import folium
@@ -1871,7 +1872,18 @@ elif opcion == "⚙️ Configuración":
                     conx.commit(); conx.close()
                     audit("CARGA_OFICIAL", "Directorios + empleados BM + ausentismo + historial general")
                     st.cache_data.clear()
-                    st.success("✅ Paquete oficial cargado correctamente. El ausentismo activo se calcula por fecha y las solicitudes pendientes/pre-aprobadas quedan en alerta.")
+                    # Resumen visible de lo cargado.
+                    n_dir = len(d)
+                    n_emp = len(e)
+                    n_aus = len(a)
+                    n_hist = len(h)
+                    st.success("✅ Paquete oficial cargado correctamente.")
+                    r1, r2, r3, r4 = st.columns(4)
+                    r1.metric("Sucursales", n_dir)
+                    r2.metric("Empleados", n_emp)
+                    r3.metric("Ausentismo histórico", n_aus)
+                    r4.metric("Vacaciones/Permisos", n_hist)
+                    st.info("🔴 Los ausentismos activos se determinan por fecha. 🟠 Las solicitudes pendientes/pre-aprobadas quedan identificadas para seguimiento.")
                 except Exception as exc:
                     try: conx.rollback(); conx.close()
                     except Exception: pass
