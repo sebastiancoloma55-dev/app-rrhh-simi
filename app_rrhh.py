@@ -6,6 +6,7 @@ import io
 import hashlib
 import secrets
 import json
+import unicodedata
 from streamlit_folium import st_folium
 import folium
 from datetime import datetime, timedelta, date, time
@@ -409,6 +410,62 @@ def init_db():
             valor TEXT
         )
     """)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS ausentismo_historico (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            rut TEXT,
+            nombre TEXT,
+            empresa TEXT,
+            cargo TEXT,
+            gerencia TEXT,
+            sucursal TEXT,
+            centro_costo TEXT,
+            tipo_ausencia TEXT,
+            motivo_ausencia TEXT,
+            dias INTEGER,
+            fecha_inicio TEXT,
+            fecha_fin TEXT,
+            hora_inicio TEXT,
+            hora_fin TEXT,
+            horas TEXT,
+            minutos TEXT,
+            fecha_creacion TEXT,
+            observaciones TEXT,
+            activo INTEGER DEFAULT 0,
+            dias_restantes INTEGER
+        )
+    """)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS solicitudes_historial (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            source_id TEXT,
+            fecha_solicitud TEXT,
+            estado TEXT,
+            rut TEXT,
+            nombre_fuente TEXT,
+            nombre_colaborador TEXT,
+            cargo TEXT,
+            codigo_sucursal TEXT,
+            dias INTEGER,
+            tipo TEXT,
+            detalle TEXT,
+            en_proceso INTEGER DEFAULT 0
+        )
+    """)
+    # Migración de columnas nuevas para bases de versiones anteriores.
+    col_info = [r[1] for r in cur.execute("PRAGMA table_info(colaboradores)").fetchall()]
+    if "sucursal_nombre" not in col_info:
+        cur.execute("ALTER TABLE colaboradores ADD COLUMN sucursal_nombre TEXT")
+    if "vigencia" not in col_info:
+        cur.execute("ALTER TABLE colaboradores ADD COLUMN vigencia TEXT")
+    if "sucursal_bm" not in col_info:
+        cur.execute("ALTER TABLE colaboradores ADD COLUMN sucursal_bm TEXT")
+    if "datos_json" not in col_info:
+        cur.execute("ALTER TABLE colaboradores ADD COLUMN datos_json TEXT")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_aus_active ON ausentismo_historico(activo)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_aus_rut ON ausentismo_historico(rut)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_aus_branch ON ausentismo_historico(sucursal)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_sol_process ON solicitudes_historial(en_proceso)")
 
     count = cur.execute("SELECT COUNT(*) FROM usuarios").fetchone()[0]
     if count == 0:
@@ -600,6 +657,93 @@ def get_col(df, aliases, default=""):
 
 
 # -------------------------
+# Datos oficiales / alertas
+# -------------------------
+def normalize_text(value):
+    txt = "" if value is None else str(value).strip().upper()
+    txt = unicodedata.normalize("NFKD", txt).encode("ascii", "ignore").decode()
+    return re.sub(r"\s+", " ", re.sub(r"[^A-Z0-9]+", " ", txt)).strip()
+
+
+def excel_serial_to_iso(value):
+    try:
+        if value in ("", None):
+            return ""
+        # Acepta serial Excel y formatos de fecha comunes.
+        if isinstance(value, (int, float)) or str(value).replace(".", "", 1).isdigit():
+            return (datetime(1899, 12, 30) + timedelta(days=float(value))).strftime("%Y-%m-%d")
+        dt = pd.to_datetime(value, errors="coerce")
+        return "" if pd.isna(dt) else dt.strftime("%Y-%m-%d")
+    except Exception:
+        return ""
+
+
+def current_absences(limit=500):
+    hoy = date.today().isoformat()
+    return query_df(f'''
+        SELECT id AS ID, rut AS RUT, nombre AS Colaborador, cargo AS Cargo,
+               sucursal AS Sucursal, tipo_ausencia AS "Tipo Ausencia",
+               fecha_inicio AS "Fecha Inicio", fecha_fin AS "Fecha Término",
+               dias AS Días,
+               CAST(julianday(fecha_fin)-julianday(?) AS INTEGER) AS "Días restantes",
+               CASE
+                 WHEN date(fecha_fin)=date(?) THEN 'RETORNO HOY'
+                 WHEN julianday(fecha_fin)-julianday(?) <= 3 THEN 'RETORNO PRÓXIMO'
+                 ELSE 'ACTIVO'
+               END AS Alerta
+        FROM ausentismo_historico
+        WHERE date(fecha_inicio) <= date(?)
+          AND date(fecha_fin) >= date(?)
+        ORDER BY date(fecha_fin), nombre
+        LIMIT {int(limit)}
+    ''', (hoy,hoy,hoy,hoy,hoy))
+
+
+def upcoming_absences(days_ahead=7, limit=500):
+    hoy = date.today().isoformat()
+    return query_df(f'''
+        SELECT id AS ID, rut AS RUT, nombre AS Colaborador, cargo AS Cargo,
+               sucursal AS Sucursal, tipo_ausencia AS "Tipo Ausencia",
+               fecha_inicio AS "Fecha Inicio", fecha_fin AS "Fecha Término",
+               dias AS Días
+        FROM ausentismo_historico
+        WHERE date(fecha_inicio) > date(?)
+          AND date(fecha_inicio) <= date(?, '+{int(days_ahead)} day')
+        ORDER BY date(fecha_inicio), nombre
+        LIMIT {int(limit)}
+    ''', (hoy,hoy))
+
+
+def requests_in_process(limit=500):
+    return query_df(f"""
+        SELECT h.id AS ID, h.fecha_solicitud AS 'Fecha Solicitud',
+               h.estado AS Estado, h.rut AS RUT,
+               COALESCE(c.nombre_completo,h.nombre_colaborador,h.nombre_fuente) AS Colaborador,
+               h.cargo AS Cargo, s.nombre AS Sucursal,
+               h.dias AS Días, h.tipo AS Tipo, h.en_proceso AS 'En proceso'
+        FROM solicitudes_historial h
+        LEFT JOIN colaboradores c ON h.rut=c.rut
+        LEFT JOIN sucursales s ON h.codigo_sucursal=s.codigo
+        WHERE h.en_proceso=1
+        ORDER BY datetime(h.fecha_solicitud) DESC
+        LIMIT {int(limit)}
+    """)
+
+
+def style_alert_rows(df, alert_col="Alerta"):
+    if df.empty or alert_col not in df.columns:
+        return df
+    def row_style(row):
+        color = "#ffe2e2"
+        if str(row.get(alert_col,"")) == "RETORNO PRÓXIMO":
+            color = "#fff1cc"
+        elif str(row.get(alert_col,"")) == "ACTIVO":
+            color = "#eef7ee"
+        return [f"background-color:{color}" for _ in row.index]
+    return df.style.apply(row_style, axis=1)
+
+
+# -------------------------
 # Estado de sesión
 # -------------------------
 if "autenticado" not in st.session_state:
@@ -736,6 +880,7 @@ if can("sucursales"):
     menu.append("🏪 Sucursales")
     menu.append("🗺️ Mapa de Sucursales")
 if can("incidencias"):
+    menu.append("🚨 Alertas de Ausentismo")
     menu.append("🚨 Incidencias y Bitácora")
 if can("reportes"):
     menu.append("📈 Reportes")
@@ -786,18 +931,20 @@ if opcion == "🏠 Inicio / Dashboard":
 
     tot_suc = int(query_df("SELECT COUNT(*) n FROM sucursales").iloc[0, 0])
     tot_col = int(query_df("SELECT COUNT(*) n FROM colaboradores WHERE activo=1").iloc[0, 0])
-    tot_lic = int(query_df("SELECT COUNT(*) n FROM licencias WHERE estado='Aprobada' AND date(fecha_desde)<=date('now') AND date(fecha_hasta)>=date('now')").iloc[0, 0])
-    tot_cov = int(query_df("SELECT COUNT(*) n FROM movimientos WHERE date(fecha_inicio)<=date('now') AND date(fecha_fin)>=date('now')").iloc[0, 0])
+    hoy = date.today().isoformat()
+    tot_aus = int(query_df("SELECT COUNT(*) n FROM ausentismo_historico WHERE date(fecha_inicio)<=date(?) AND date(fecha_fin)>=date(?)",(hoy,hoy)).iloc[0, 0])
+    tot_cov = int(query_df("SELECT COUNT(*) n FROM movimientos WHERE date(fecha_inicio)<=date(?) AND date(fecha_fin)>=date(?)",(hoy,hoy)).iloc[0, 0])
     tot_inc = int(query_df("SELECT COUNT(*) n FROM incidencias WHERE estado<>'Cerrada'").iloc[0, 0])
-    tot_vac = int(query_df("SELECT COUNT(*) n FROM solicitudes WHERE estado IN ('Aprobada','Pre Aprobada','Pendiente') AND date(fecha_desde)<=date('now') AND date(fecha_hasta)>=date('now')").iloc[0, 0])
+    tot_proc = int(query_df("SELECT COUNT(*) n FROM solicitudes_historial WHERE en_proceso=1").iloc[0, 0])
+    tot_fin3 = int(query_df("SELECT COUNT(*) n FROM ausentismo_historico WHERE date(fecha_inicio)<=date(?) AND date(fecha_fin)>=date(?) AND julianday(fecha_fin)-julianday(?) BETWEEN 0 AND 3",(hoy,hoy,hoy)).iloc[0, 0])
 
     metrics = [
         ("🏪 Sucursales", tot_suc),
         ("👥 Colaboradores activos", tot_col),
-        ("🏥 Licencias activas", tot_lic),
+        ("🏥 Ausencias activas", tot_aus),
         ("🔄 Coberturas activas", tot_cov),
-        ("🏖️ Ausencias vigentes", tot_vac),
-        ("🚨 Incidencias abiertas", tot_inc),
+        ("🏖️ Solicitudes en proceso", tot_proc),
+        ("⏰ Retornos próximos (≤3 días)", tot_fin3),
     ]
 
     cols = st.columns(6)
@@ -809,26 +956,21 @@ if opcion == "🏠 Inicio / Dashboard":
                 unsafe_allow_html=True,
             )
 
-    st.markdown('<div class="section">🚨 Alertas críticas</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section">🚨 Alertas de Ausentismo y Continuidad</div>', unsafe_allow_html=True)
 
-    alertas = []
-    qf = query_df("SELECT codigo,nombre,director_tecnico,dt_complementario FROM sucursales")
-    if not qf.empty:
-        for _, r in qf.iterrows():
-            q1 = str(r["director_tecnico"] or "").strip()
-            q2 = str(r["dt_complementario"] or "").strip()
-            if q1 in ("", "Sin QF Titular", "nan") and q2 in ("", "Sin DT 2", "nan"):
-                alertas.append({
-                    "Prioridad": "CRÍTICA",
-                    "Tipo": "Sucursal sin QF",
-                    "Sucursal": r["nombre"],
-                    "Detalle": "Sin QF titular y sin DT complementario informado",
-                })
+    active_df = current_absences(120)
+    soon_df = upcoming_absences(7, 60)
 
-    if not alertas:
-        st.success("🟢 No se detectan alertas críticas con la información cargada.")
+    if active_df.empty:
+        st.success("🟢 No hay personas con ausentismo activo según las fechas cargadas.")
     else:
-        st.dataframe(pd.DataFrame(alertas), use_container_width=True)
+        st.warning(f"⚠️ Actualmente hay **{len(active_df)} registros de ausentismo activos**. Revise las coberturas asociadas.")
+        st.dataframe(style_alert_rows(active_df), use_container_width=True, hide_index=True)
+
+    if not soon_df.empty:
+        st.info(f"📅 Hay **{len(soon_df)} ausentismos futuros** dentro de los próximos 7 días.")
+        with st.expander("Ver próximos ausentismos"):
+            st.dataframe(soon_df, use_container_width=True, hide_index=True)
 
     c1, c2 = st.columns(2)
     with c1:
@@ -862,7 +1004,7 @@ elif opcion == "👥 Personas":
 
     df = query_df("""
         SELECT c.rut AS RUT, c.nombre_completo AS Colaborador,
-               c.cargo AS Cargo, s.nombre AS Sucursal,
+               c.cargo AS Cargo, COALESCE(c.sucursal_nombre,s.nombre,c.sucursal_bm) AS Sucursal,
                c.jornada_horas AS Jornada, c.celular AS Celular,
                c.email AS Email, c.activo AS Activo
         FROM colaboradores c
@@ -1315,6 +1457,48 @@ elif opcion == "🗺️ Mapa de Sucursales":
         st.caption("🔴 licencia sin cobertura activa · 🟠 ausencia programada · 🔵 sin alerta crítica")
 
 # ============================================================
+# ALERTAS DE AUSENTISMO
+# ============================================================
+elif opcion == "🚨 Alertas de Ausentismo":
+    page_title("Centro de Alertas de Ausentismo", "Ausencias activas, retornos próximos y solicitudes en proceso.")
+
+    active = current_absences(1000)
+    upcoming = upcoming_absences(14, 1000)
+    process = requests_in_process(1000)
+
+    a,b,c = st.columns(3)
+    a.metric("Ausentismos activos", len(active))
+    b.metric("Retornos próximos ≤3 días", int((active["Días restantes"] <= 3).sum()) if not active.empty else 0)
+    c.metric("Solicitudes en proceso", len(process))
+
+    st.markdown('<div class="section">🔴 Personas actualmente ausentes</div>', unsafe_allow_html=True)
+    if active.empty:
+        st.success("No hay ausencias activas hoy.")
+    else:
+        filtro = st.text_input("🔎 Filtrar persona, RUT, sucursal o tipo")
+        view = active.copy()
+        if filtro:
+            mask=view.astype(str).apply(lambda col: col.str.contains(filtro,case=False,na=False)).any(axis=1)
+            view=view[mask]
+        st.dataframe(style_alert_rows(view),use_container_width=True,hide_index=True)
+        st.download_button("📥 Descargar ausentismo activo",
+                           excel_bytes(view,"Activos"),"ausentismo_activo.xlsx",
+                           "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+    st.markdown('<div class="section">🟠 Ausentismos próximos</div>', unsafe_allow_html=True)
+    st.dataframe(upcoming,use_container_width=True,hide_index=True) if not upcoming.empty else st.info("No hay ausentismos iniciando en los próximos 14 días.")
+
+    st.markdown('<div class="section">🟡 Vacaciones y permisos en proceso</div>', unsafe_allow_html=True)
+    if process.empty:
+        st.success("No existen solicitudes pendientes/pre-aprobadas.")
+    else:
+        st.dataframe(process,use_container_width=True,hide_index=True)
+        st.info("El archivo Historial_General no contiene fecha de inicio/término de la ausencia; por eso las solicitudes aprobadas históricas no se clasifican automáticamente como vigentes. Las pendientes/pre-aprobadas sí se muestran como 'en proceso'.")
+        st.download_button("📥 Descargar solicitudes en proceso",
+                           excel_bytes(process,"EnProceso"),"solicitudes_en_proceso.xlsx",
+                           "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+# ============================================================
 # INCIDENCIAS / BITÁCORA
 # ============================================================
 elif opcion == "🚨 Incidencias y Bitácora":
@@ -1550,6 +1734,150 @@ elif opcion == "⚙️ Configuración":
         st.info("Los parámetros quedan guardados en la base local de la aplicación.")
 
     with tab2:
+        st.markdown('<div class="section">📦 Paquete oficial de actualización</div>', unsafe_allow_html=True)
+        st.caption("Use los cuatro archivos oficiales de operación. La sucursal del colaborador se toma exclusivamente desde la columna BM 'Sucursal' de la nómina y se cruza con 'NOMBRE SUCURSAL' del Directorio.")
+
+        f_dir = st.file_uploader("1. Directorio de sucursales", type=["xlsx"], key="official_dir")
+        f_emp = st.file_uploader("2. Lista de empleados", type=["xlsx"], key="official_emp")
+        f_aus = st.file_uploader("3. Historial de ausentismo", type=["xlsx"], key="official_aus")
+        f_hist = st.file_uploader("4. Historial general de vacaciones/permisos", type=["xlsx"], key="official_hist")
+
+        if st.button("🚀 Cargar paquete oficial", type="primary", use_container_width=True):
+            faltan=[name for name,file in [
+                ("Directorio",f_dir),("Empleados",f_emp),("Ausentismo",f_aus),("Historial general",f_hist)
+            ] if file is None]
+            if faltan:
+                st.error("Faltan: " + ", ".join(faltan))
+            else:
+                try:
+                    # Directorio
+                    d=pd.read_excel(f_dir); d.columns=[str(x).strip() for x in d.columns]
+                    required_dir=["UNIDAD","NOMBRE SUCURSAL","DIRECCIÓN","COMUNA","REGIÓN"]
+                    if not all(x in d.columns for x in required_dir):
+                        st.error("El Directorio no tiene la estructura esperada.")
+                        st.stop()
+                    dm={normalize_text(r["NOMBRE SUCURSAL"]):str(r["UNIDAD"]).strip() for _,r in d.iterrows() if str(r["NOMBRE SUCURSAL"]).strip()}
+                    conx=db(); curx=conx.cursor()
+                    for _,r in d.iterrows():
+                        geo=str(r.get("GEOLOCALIZACION","") or "")
+                        lat=lon=None
+                        if "," in geo:
+                            try: lat,lon=[float(v.strip()) for v in geo.split(",",1)]
+                            except: pass
+                        curx.execute("""INSERT INTO sucursales
+                        (codigo,nombre,direccion,comuna,ciudad,region,telefono,director_tecnico,telfdt,dt_complementario,telfdt2,
+                         horario_lunes_viernes,horario_sabado,horario_domingo,fecha_apertura,supervisor,jefe_comercial,email,geolocalizacion,ecommerce,latitud,longitud)
+                        VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                        ON CONFLICT(codigo) DO UPDATE SET nombre=excluded.nombre,direccion=excluded.direccion,
+                        comuna=excluded.comuna,ciudad=excluded.ciudad,region=excluded.region,
+                        director_tecnico=excluded.director_tecnico,dt_complementario=excluded.dt_complementario,
+                        supervisor=excluded.supervisor,email=excluded.email,geolocalizacion=excluded.geolocalizacion,
+                        ecommerce=excluded.ecommerce,latitud=excluded.latitud,longitud=excluded.longitud""",(
+                            str(r["UNIDAD"]).strip(),str(r["NOMBRE SUCURSAL"]).strip(),str(r.get("DIRECCIÓN","") or ""),
+                            str(r.get("COMUNA","") or ""),str(r.get("CIUDAD","") or ""),str(r.get("REGIÓN","") or ""),
+                            str(r.get("TEL. FIJO","") or ""),str(r.get("DIRECTOR TÉCNICO","") or ""),str(r.get("TELFDT","") or ""),
+                            str(r.get("DT COMPLEMENTARIO","") or ""),str(r.get("TELFDT2","") or ""),
+                            str(r.get("LUNES A VIERNES","") or ""),str(r.get("SABADO","") or ""),str(r.get("DOMINGO","") or ""),
+                            str(r.get("FECHA APERTURA","") or ""),str(r.get("SUPERVISOR","") or ""),str(r.get("JEFE COMERCIAL","") or ""),
+                            str(r.get("CORREO ELECTRONICO","") or ""),geo,str(r.get("E-COMMERCE","") or ""),lat,lon
+                        ))
+
+                    # Empleados: BM = col 65, header 'Sucursal'
+                    e=pd.read_excel(f_emp); e.columns=[str(x).strip() for x in e.columns]
+                    if "Sucursal" not in e.columns or "RUT" not in e.columns:
+                        st.error("La nómina no contiene la columna BM 'Sucursal' y RUT.")
+                        conx.rollback(); conx.close(); st.stop()
+                    for _,r in e.iterrows():
+                        rut=str(r.get("RUT","") or "").strip()
+                        if not rut: continue
+                        full=" ".join(str(r.get(k,"") or "").strip() for k in ["Nombre","Apellido Paterno","Apellido Materno"]).strip()
+                        suc_bm=str(r.get("Sucursal","") or "").strip()
+                        code=dm.get(normalize_text(suc_bm))
+                        try:jornada=float(r.get("Horas de la Jornada",40))
+                        except:jornada=40.0
+                        raw={k:(None if pd.isna(v) else v) for k,v in r.to_dict().items()}
+                        for k,v in list(raw.items()):
+                            if isinstance(v,(pd.Timestamp,datetime,date)): raw[k]=v.isoformat()
+                        curx.execute("""INSERT INTO colaboradores(rut,nombre_completo,codigo_sucursal,sucursal_nombre,cargo,celular,email,jornada_horas,activo,vigencia,sucursal_bm,datos_json)
+                        VALUES(?,?,?,?,?,?,?,?,?,?,?,?)
+                        ON CONFLICT(rut) DO UPDATE SET nombre_completo=excluded.nombre_completo,codigo_sucursal=excluded.codigo_sucursal,
+                        sucursal_nombre=excluded.sucursal_nombre,cargo=excluded.cargo,celular=excluded.celular,email=excluded.email,
+                        jornada_horas=excluded.jornada_horas,activo=excluded.activo,vigencia=excluded.vigencia,
+                        sucursal_bm=excluded.sucursal_bm,datos_json=excluded.datos_json""",(
+                            rut,full,code,suc_bm,str(r.get("Cargo","") or ""),str(r.get("Celular","") or ""),
+                            str(r.get("Email Personal","") or r.get("Email","") or ""),jornada,
+                            1 if normalize_text(r.get("Vigente",""))=="SI" else 0,str(r.get("Vigente","") or ""),suc_bm,json.dumps(raw,ensure_ascii=False)
+                        ))
+
+                    # Ausentismo completo
+                    a=pd.read_excel(f_aus); a.columns=[str(x).strip() for x in a.columns]
+                    req_a=["Rut","Nombre","Sucursal","Tipo de Ausencia","Número de días de Ausencia","Fecha Inicio Ausencia","Fecha Fin Ausencia"]
+                    if not all(x in a.columns for x in req_a):
+                        st.error("El archivo de ausentismo no contiene la estructura esperada.")
+                        conx.rollback(); conx.close(); st.stop()
+                    curx.execute("DELETE FROM ausentismo_historico")
+                    for _,r in a.iterrows():
+                        sd=pd.to_datetime(r.get("Fecha Inicio Ausencia"),errors="coerce")
+                        ed=pd.to_datetime(r.get("Fecha Fin Ausencia"),errors="coerce")
+                        curx.execute("""INSERT INTO ausentismo_historico
+                        (rut,nombre,empresa,cargo,gerencia,sucursal,centro_costo,tipo_ausencia,motivo_ausencia,dias,fecha_inicio,fecha_fin,hora_inicio,hora_fin,horas,minutos,fecha_creacion,observaciones,activo,dias_restantes)
+                        VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",(
+                            str(r.get("Rut","") or ""),str(r.get("Nombre","") or ""),str(r.get("Empresa","") or ""),
+                            str(r.get("Cargo","") or ""),str(r.get("Gerencia","") or ""),str(r.get("Sucursal","") or ""),
+                            str(r.get("Centro de Costo","") or ""),str(r.get("Tipo de Ausencia","") or ""),
+                            str(r.get("Motivo de Ausencia","") or ""),int(pd.to_numeric(r.get("Número de días de Ausencia",0),errors="coerce") or 0),
+                            "" if pd.isna(sd) else sd.strftime("%Y-%m-%d"),"" if pd.isna(ed) else ed.strftime("%Y-%m-%d"),
+                            str(r.get("Hora Inicio","") or ""),str(r.get("Hora Fin","") or ""),str(r.get("Número Horas","") or ""),
+                            str(r.get("Número Minutos","") or ""),excel_serial_to_iso(r.get("Fecha de Creación")),
+                            str(r.get("Observaciones","") or ""),
+                            int(bool(not pd.isna(sd) and not pd.isna(ed) and sd.date() <= date.today() <= ed.date())),
+                            int((ed.date()-date.today()).days) if not pd.isna(ed) else None
+                        ))
+
+                    # General history
+                    h=pd.read_excel(f_hist,header=None)
+                    # Locate the row containing ID/Fecha de Solicitud
+                    header_idx=None
+                    for i in range(min(10,len(h))):
+                        vals=[str(x).strip() for x in h.iloc[i].tolist()]
+                        if "ID" in vals and "RUT" in vals and "Tipo" in vals:
+                            header_idx=i; break
+                    if header_idx is None:
+                        st.error("No se encontró la cabecera del Historial_General.")
+                        conx.rollback(); conx.close(); st.stop()
+                    h.columns=h.iloc[header_idx].astype(str).str.strip(); h=h.iloc[header_idx+1:].reset_index(drop=True)
+                    curx.execute("DELETE FROM solicitudes_historial")
+                    curx.execute("DELETE FROM solicitudes")
+                    for idx,r in h.iterrows():
+                        source_id=str(r.get("ID",idx+1) or idx+1)
+                        status=str(r.get("Estado","") or "").strip()
+                        inproc=1 if status in ("Pendiente","Pre-Aprobada") else 0
+                        rut=str(r.get("RUT","") or "").strip()
+                        rr=curx.execute("SELECT nombre_completo FROM colaboradores WHERE rut=?",(rut,)).fetchone()
+                        cname=rr[0] if rr else str(r.get("Nombre","") or "")
+                        try: days=int(float(r.get("Días",0)))
+                        except: days=0
+                        curx.execute("""INSERT INTO solicitudes_historial(source_id,fecha_solicitud,estado,rut,nombre_fuente,nombre_colaborador,cargo,codigo_sucursal,dias,tipo,detalle,en_proceso)
+                        VALUES(?,?,?,?,?,?,?,?,?,?,?,?)""",(
+                            source_id,str(r.get("Fecha de Solicitud","") or ""),status,rut,str(r.get("Nombre","") or ""),
+                            cname,str(r.get("Cargo","") or ""),str(r.get("Sucursal","") or ""),days,str(r.get("Tipo","") or ""),
+                            str(r.get("Detalle","") or ""),inproc))
+                        curx.execute("""INSERT OR REPLACE INTO solicitudes
+                        (id_solicitud,estado,rut,nombre,cargo,codigo_sucursal,fecha_solicitud,fecha_desde,fecha_hasta,dias,tipo,detalle,en_proceso)
+                        VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)""",(
+                            f"{source_id}#{idx}",status,rut,cname,str(r.get("Cargo","") or ""),str(r.get("Sucursal","") or ""),
+                            str(r.get("Fecha de Solicitud","") or ""), "", "", days, str(r.get("Tipo","") or ""),
+                            str(r.get("Detalle","") or ""),inproc))
+                    conx.commit(); conx.close()
+                    audit("CARGA_OFICIAL", "Directorios + empleados BM + ausentismo + historial general")
+                    st.cache_data.clear()
+                    st.success("✅ Paquete oficial cargado correctamente. El ausentismo activo se calcula por fecha y las solicitudes pendientes/pre-aprobadas quedan en alerta.")
+                except Exception as exc:
+                    try: conx.rollback(); conx.close()
+                    except Exception: pass
+                    st.error(f"No se pudo completar la carga: {exc}")
+
+        st.markdown("---")
         st.write("### Plantillas")
         p_suc = pd.DataFrame(columns=["codigo","nombre","direccion","comuna","region","director_tecnico","dt_complementario","latitud","longitud"])
         p_col = pd.DataFrame(columns=["rut","nombre_completo","codigo_sucursal","cargo","celular","email","jornada_horas","activo"])
