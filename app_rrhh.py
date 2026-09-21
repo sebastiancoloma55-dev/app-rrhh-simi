@@ -1180,13 +1180,19 @@ if opcion == "🏠 Inicio / Dashboard":
 
     c1, c2 = st.columns(2)
     with c1:
-        st.markdown('<div class="section">🏥 Licencias por tipo</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section">🏥 Licencias activas por tipo</div>', unsafe_allow_html=True)
         df = query_df("""
-            SELECT COALESCE(tipo_ausencia,'Sin tipo') Tipo, COUNT(*) Cantidad
-            FROM licencias GROUP BY tipo_ausencia ORDER BY Cantidad DESC
-        """)
+            SELECT COALESCE(tipo_ausencia,'Sin tipo') AS Tipo,
+                   COUNT(*) AS Cantidad
+            FROM ausentismo_historico
+            WHERE lower(tipo_ausencia) LIKE '%licencia%'
+              AND date(fecha_inicio) <= date(?)
+              AND date(fecha_fin) >= date(?)
+            GROUP BY tipo_ausencia
+            ORDER BY Cantidad DESC
+        """, (hoy, hoy))
         if df.empty:
-            st.info("Sin licencias cargadas.")
+            st.info("No hay licencias médicas activas con la información oficial cargada.")
         else:
             st.bar_chart(df.set_index("Tipo"))
 
@@ -2210,7 +2216,11 @@ elif opcion == "⚙️ Configuración":
             if faltan:
                 st.error("Faltan: " + ", ".join(faltan))
             else:
+                progreso = st.progress(0, text="0% · Preparando carga oficial…")
+                estado_carga = st.empty()
                 try:
+                    estado_carga.info("📂 Paso 1 de 4 · Leyendo Directorio…")
+                    progreso.progress(5, text="5% · Leyendo Directorio de sucursales…")
                     # Directorio
                     d=pd.read_excel(f_dir); d.columns=[str(x).strip() for x in d.columns]
                     required_dir=["UNIDAD","NOMBRE SUCURSAL","DIRECCIÓN","COMUNA","REGIÓN"]
@@ -2219,7 +2229,8 @@ elif opcion == "⚙️ Configuración":
                         st.stop()
                     dm={normalize_text(r["NOMBRE SUCURSAL"]):str(r["UNIDAD"]).strip() for _,r in d.iterrows() if str(r["NOMBRE SUCURSAL"]).strip()}
                     conx=db(); curx=conx.cursor()
-                    for _,r in d.iterrows():
+                    total_d = max(len(d), 1)
+                    for i,(_,r) in enumerate(d.iterrows(), start=1):
                         geo=str(r.get("GEOLOCALIZACION","") or "")
                         lat=lon=None
                         if "," in geo:
@@ -2242,13 +2253,21 @@ elif opcion == "⚙️ Configuración":
                             str(r.get("FECHA APERTURA","") or ""),str(r.get("SUPERVISOR","") or ""),str(r.get("JEFE COMERCIAL","") or ""),
                             str(r.get("CORREO ELECTRONICO","") or ""),geo,str(r.get("E-COMMERCE","") or ""),lat,lon
                         ))
+                        if i == 1 or i == total_d or i % max(1,total_d//20) == 0:
+                            pct = 5 + int(20 * i / total_d)
+                            progreso.progress(pct, text=f"{pct}% · Directorio {i:,}/{len(d):,}")
+
+                    estado_carga.success(f"✅ Directorio listo · {len(d):,} sucursales")
+                    progreso.progress(25, text="25% · Directorio completado")
+                    estado_carga.info("👥 Paso 2 de 4 · Cargando empleados y sucursal BM…")
 
                     # Empleados: BM = col 65, header 'Sucursal'
                     e=pd.read_excel(f_emp); e.columns=[str(x).strip() for x in e.columns]
                     if "Sucursal" not in e.columns or "RUT" not in e.columns:
                         st.error("La nómina no contiene la columna BM 'Sucursal' y RUT.")
                         conx.rollback(); conx.close(); st.stop()
-                    for _,r in e.iterrows():
+                    total_e = max(len(e), 1)
+                    for i,(_,r) in enumerate(e.iterrows(), start=1):
                         rut=str(r.get("RUT","") or "").strip()
                         if not rut: continue
                         full=" ".join(str(r.get(k,"") or "").strip() for k in ["Nombre","Apellido Paterno","Apellido Materno"]).strip()
@@ -2269,6 +2288,13 @@ elif opcion == "⚙️ Configuración":
                             str(r.get("Email Personal","") or r.get("Email","") or ""),jornada,
                             1 if normalize_text(r.get("Vigente",""))=="SI" else 0,str(r.get("Vigente","") or ""),suc_bm,json.dumps(raw,ensure_ascii=False)
                         ))
+                        if i == 1 or i == total_e or i % max(1,total_e//20) == 0:
+                            pct = 25 + int(25 * i / total_e)
+                            progreso.progress(pct, text=f"{pct}% · Empleados {i:,}/{len(e):,}")
+
+                    estado_carga.success(f"✅ Empleados listos · {len(e):,} registros · sucursal tomada desde BM")
+                    progreso.progress(50, text="50% · Empleados completados")
+                    estado_carga.info("🏥 Paso 3 de 4 · Cargando historial de ausentismo…")
 
                     # Ausentismo completo
                     a=pd.read_excel(f_aus); a.columns=[str(x).strip() for x in a.columns]
@@ -2277,7 +2303,8 @@ elif opcion == "⚙️ Configuración":
                         st.error("El archivo de ausentismo no contiene la estructura esperada.")
                         conx.rollback(); conx.close(); st.stop()
                     curx.execute("DELETE FROM ausentismo_historico")
-                    for _,r in a.iterrows():
+                    total_a = max(len(a), 1)
+                    for i,(_,r) in enumerate(a.iterrows(), start=1):
                         sd=pd.to_datetime(r.get("Fecha Inicio Ausencia"),errors="coerce")
                         ed=pd.to_datetime(r.get("Fecha Fin Ausencia"),errors="coerce")
                         curx.execute("""INSERT INTO ausentismo_historico
@@ -2294,6 +2321,13 @@ elif opcion == "⚙️ Configuración":
                             int(bool(not pd.isna(sd) and not pd.isna(ed) and sd.date() <= date.today() <= ed.date())),
                             int((ed.date()-date.today()).days) if not pd.isna(ed) else None
                         ))
+                        if i == 1 or i == total_a or i % max(1,total_a//20) == 0:
+                            pct = 50 + int(25 * i / total_a)
+                            progreso.progress(pct, text=f"{pct}% · Ausentismo {i:,}/{len(a):,}")
+
+                    estado_carga.success(f"✅ Ausentismo listo · {len(a):,} registros")
+                    progreso.progress(75, text="75% · Ausentismo completado")
+                    estado_carga.info("🏖️ Paso 4 de 4 · Cargando vacaciones y permisos…")
 
                     # General history
                     h=pd.read_excel(f_hist,header=None)
@@ -2309,6 +2343,7 @@ elif opcion == "⚙️ Configuración":
                     h.columns=h.iloc[header_idx].astype(str).str.strip(); h=h.iloc[header_idx+1:].reset_index(drop=True)
                     curx.execute("DELETE FROM solicitudes_historial")
                     curx.execute("DELETE FROM solicitudes")
+                    total_h = max(len(h), 1)
                     for idx,r in h.iterrows():
                         source_id=str(r.get("ID",idx+1) or idx+1)
                         status=str(r.get("Estado","") or "").strip()
@@ -2329,7 +2364,13 @@ elif opcion == "⚙️ Configuración":
                             f"{source_id}#{idx}",status,rut,cname,str(r.get("Cargo","") or ""),str(r.get("Sucursal","") or ""),
                             str(r.get("Fecha de Solicitud","") or ""), "", "", days, str(r.get("Tipo","") or ""),
                             str(r.get("Detalle","") or ""),inproc))
+                        current_h = idx + 1
+                        if current_h == 1 or current_h == total_h or current_h % max(1,total_h//20) == 0:
+                            pct = 75 + int(25 * current_h / total_h)
+                            progreso.progress(pct, text=f"{pct}% · Vacaciones/Permisos {current_h:,}/{len(h):,}")
                     conx.commit(); conx.close()
+                    progreso.progress(100, text="100% · Carga oficial completada")
+                    estado_carga.success("✅ Los 4 archivos fueron procesados correctamente.")
                     audit("CARGA_OFICIAL", "Directorios + empleados BM + ausentismo + historial general")
                     st.cache_data.clear()
                     # Resumen visible de lo cargado.
