@@ -174,8 +174,14 @@ st.markdown(
       border:1px solid var(--green) !important;border-radius:8px !important;
       font-weight:850 !important;min-height:40px;
     }
+    .stButton > button p,.stButton > button span,
+    .stDownloadButton > button p,.stDownloadButton > button span{
+      color:#fff !important;
+    }
     .stButton > button:hover,.stDownloadButton > button:hover{
-      background:var(--green2) !important;color:#fff !important;border-color:var(--green2) !important;
+      background:#13715a !important;color:#fff !important;
+      border-color:#13715a !important;
+      transform:translateY(-1px);
     }
     .stFormSubmitButton > button{
       background:var(--green2) !important;color:#fff !important;border-color:var(--green2) !important;
@@ -905,8 +911,7 @@ if not st.session_state.autenticado:
 # -------------------------
 def set_navigation(target):
     if target in menu:
-        st.session_state.menu_principal = target
-        st.session_state.navigate_to = None
+        st.session_state.current_page = target
 
 st.sidebar.markdown(
     """
@@ -950,26 +955,21 @@ if st.session_state.rol_actual == "Admin Supremo":
 
 menu.append("ℹ️ Ayuda")
 
-# Navegación programática y sincronizada con accesos rápidos.
-if "navigate_to" not in st.session_state:
-    st.session_state.navigate_to = None
+# Navegación: una única variable controla toda la aplicación.
+if "current_page" not in st.session_state or st.session_state.current_page not in menu:
+    st.session_state.current_page = menu[0]
 
-if st.session_state.navigate_to in menu:
-    # Se usa una clave temporal para que el radio arranque en el destino.
-    st.session_state.nav_radio_default = st.session_state.navigate_to
-    st.session_state.navigate_to = None
-
-if "nav_radio_default" not in st.session_state or st.session_state.nav_radio_default not in menu:
-    st.session_state.nav_radio_default = menu[0]
-
+# El callback de los accesos rápidos cambia current_page antes del rerun.
 opcion = st.sidebar.radio(
     "Navegación",
     menu,
-    index=menu.index(st.session_state.nav_radio_default),
-    key="nav_radio",
+    index=menu.index(st.session_state.current_page),
 )
-# Sincronizamos el destino elegido manualmente.
-st.session_state.nav_radio_default = opcion
+
+# Si el usuario cambió el radio lateral, guardamos la nueva sección.
+if opcion != st.session_state.current_page:
+    st.session_state.current_page = opcion
+    st.rerun()
 
 st.sidebar.markdown("---")
 st.sidebar.markdown(
@@ -1058,7 +1058,13 @@ if opcion == "🏠 Inicio / Dashboard":
     # ========================================================
     # Accesos ejecutivos a los módulos
     # ========================================================
-    st.markdown('<div class="section">📌 Accesos rápidos</div><div style="font-size:12px;color:#6a7f78;margin:-5px 0 10px;">Seleccione el módulo para entrar directamente.</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="section">📌 Accesos rápidos</div>'
+        '<div style="font-size:12px;color:#6a7f78;margin:-5px 0 10px;">'
+        'Haz clic en una tarjeta para entrar directamente al módulo.</div>',
+        unsafe_allow_html=True
+    )
+
     accesos = [
         ("👥", "Personas", "Ficha y búsqueda de colaboradores", "👥 Personas"),
         ("🕐", "Asistencia", "Control diario y jornadas", "🕐 Asistencia"),
@@ -1076,21 +1082,27 @@ if opcion == "🏠 Inicio / Dashboard":
         for col, item in zip(cols, accesos[base:base+3]):
             icon, title, desc, target = item
             with col:
+                # La propia tarjeta/botón es el acceso.
                 st.markdown(
                     f"""
-                    <div style="background:#ffffff;border:1px solid #d6e5de;border-radius:14px;
-                                padding:13px 15px 9px;margin-bottom:7px;min-height:75px;
-                                box-shadow:0 4px 13px rgba(15,95,73,.05);">
-                        <div style="font-size:21px;margin-bottom:3px;">{icon}</div>
-                        <div style="font-size:15px;font-weight:850;color:#0f5f49;">{title}</div>
+                    <div style="
+                        background:#ffffff;
+                        border:1px solid #cfe0d8;
+                        border-radius:14px;
+                        padding:13px 15px 8px;
+                        margin-bottom:6px;
+                        min-height:72px;
+                        box-shadow:0 4px 13px rgba(15,95,73,.05);
+                    ">
+                        <div style="font-size:21px;line-height:1;">{icon}</div>
+                        <div style="font-size:15px;font-weight:850;color:#0f5f49;margin-top:4px;">{title}</div>
                         <div style="font-size:11px;color:#71837c;margin-top:3px;">{desc}</div>
                     </div>
                     """,
                     unsafe_allow_html=True
                 )
-                # El botón usa el icono + nombre como acceso directo.
                 st.button(
-                    f"{icon}  IR A {title.upper()}",
+                    f"{icon}  ABRIR {title.upper()}",
                     key=f"quick_{title}",
                     use_container_width=True,
                     on_click=set_navigation,
@@ -1519,7 +1531,7 @@ elif opcion == "🏥 Licencias":
                 "motivo": "Licencia Médica",
                 "ausencia_id": str(r["ID"]),
             }
-            st.session_state.navigate_to = "🔄 Coberturas y Movimientos"
+            st.session_state.current_page = "🔄 Coberturas y Movimientos"
             st.rerun()
 
     st.markdown('<div class="section">📚 Historial de licencias cargadas</div>', unsafe_allow_html=True)
