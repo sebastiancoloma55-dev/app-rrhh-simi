@@ -82,196 +82,97 @@ PERMISSIONS = {
 st.markdown(
     """
     <style>
-    :root {
-        --navy:#08233f;
-        --navy-2:#0b3158;
-        --navy-3:#123f68;
-        --blue:#1d4ed8;
-        --blue-soft:#eaf2ff;
-        --text:#102a43;
-        --muted:#64748b;
-        --border:#d7e0ea;
-        --bg:#f5f7fa;
-        --white:#ffffff;
-        --danger:#b91c1c;
-        --warning:#a16207;
-        --success:#166534;
+    :root{
+      --navy:#062543; --navy2:#0b355c; --blue:#1f5bd5;
+      --blue2:#eaf2ff; --bg:#f4f7fb; --text:#142a40; --muted:#687b8f;
+      --border:#d8e2ec; --white:#ffffff; --green:#198754; --yellow:#b7791f; --red:#c53030;
     }
 
     #MainMenu, footer, header {visibility:hidden;}
-    .stApp {background:var(--bg) !important;color:var(--text) !important;}
-    .block-container {padding-top:2rem;padding-bottom:3rem;max-width:1500px;}
+    .stApp{background:var(--bg) !important;color:var(--text) !important;}
+    section[data-testid="stSidebar"]{
+      background:linear-gradient(180deg,var(--navy) 0%,var(--navy2) 100%) !important;
+      border-right:1px solid rgba(255,255,255,.08);
+    }
+    section[data-testid="stSidebar"] *{color:#fff !important;}
+    .block-container{max-width:1480px;padding-top:1.7rem;padding-bottom:2.5rem;}
+
+    /* Executive header / text */
+    .title{font-size:32px;font-weight:850;line-height:1.15;color:var(--navy) !important;margin:0 0 4px 0;}
+    .subtitle{font-size:14px;color:var(--muted) !important;margin:0 0 22px 0;}
+    h1,h2,h3,h4,h5,h6{color:var(--navy) !important;}
+    .section{
+      background:var(--navy);color:#fff !important;border-radius:11px;
+      padding:12px 16px;margin:18px 0 12px 0;font-weight:800;
+      box-shadow:0 3px 12px rgba(6,37,67,.10);
+    }
+    .section *{color:#fff !important;}
 
     /* Sidebar */
-    [data-testid="stSidebar"] {
-        background:linear-gradient(180deg,var(--navy) 0%,var(--navy-2) 100%) !important;
-        border-right:1px solid rgba(255,255,255,.08);
+    .brand{padding:10px 5px 18px;text-align:center;border-bottom:1px solid rgba(255,255,255,.16);margin-bottom:16px;}
+    .brand-title{font-size:25px;font-weight:950;letter-spacing:1.3px;color:#fff;}
+    .brand-sub{font-size:10px;font-weight:700;opacity:.78;letter-spacing:1.2px;text-transform:uppercase;color:#dbeafe;}
+    section[data-testid="stSidebar"] .stRadio label{font-weight:600 !important;}
+    section[data-testid="stSidebar"] .stButton > button{
+      background:#fff !important;color:var(--navy) !important;border:1px solid #dce6f0 !important;
+      font-weight:800 !important;border-radius:9px !important;
     }
-    [data-testid="stSidebar"] * {color:#ffffff !important;}
-    [data-testid="stSidebar"] p,
-    [data-testid="stSidebar"] span,
-    [data-testid="stSidebar"] label {color:#ffffff !important;}
-    [data-testid="stSidebar"] .stRadio label {color:#ffffff !important;font-weight:600 !important;}
-    [data-testid="stSidebar"] .stRadio > div {gap:4px;}
-    [data-testid="stSidebar"] .stButton > button {
-        background:#ffffff !important;
-        color:var(--navy) !important;
-        border:1px solid #dbe3ec !important;
-        font-weight:800 !important;
-        box-shadow:none !important;
-    }
-    [data-testid="stSidebar"] .stButton > button:hover {
-        background:#edf4ff !important;
-        color:var(--navy) !important;
-        border-color:#b9cae0 !important;
-    }
+    section[data-testid="stSidebar"] .stButton > button:hover{background:#edf4ff !important;color:var(--navy) !important;}
 
-    .brand {
-        padding:10px 4px 18px 4px;text-align:center;
-        border-bottom:1px solid rgba(255,255,255,.16);margin-bottom:15px;
-    }
-    .brand-title {font-size:25px;font-weight:900;letter-spacing:1px;color:#fff;}
-    .brand-sub {font-size:11px;opacity:.82;letter-spacing:1px;text-transform:uppercase;color:#dbeafe;}
+    /* Cards / metrics */
+    .card{background:#fff;border:1px solid var(--border);border-radius:15px;padding:18px;height:100%;
+      box-shadow:0 5px 18px rgba(16,42,67,.055);}
+    .metric-label{font-size:12px;color:#5d7084 !important;}
+    .metric-value{font-size:29px;font-weight:900;color:var(--navy) !important;margin-top:5px;}
+    .metric-note{font-size:10px;color:#8393a5 !important;margin-top:2px;}
 
-    /* Main text */
-    .title {font-size:31px;font-weight:850;color:var(--navy) !important;margin-bottom:3px;}
-    .subtitle {color:var(--muted) !important;margin-bottom:22px;}
-    h1,h2,h3,h4,h5,h6 {color:var(--navy) !important;}
-
-    /* Cards */
-    .card {
-        background:var(--white);border:1px solid var(--border);border-radius:16px;
-        padding:20px;box-shadow:0 5px 20px rgba(15,23,42,.06);height:100%;
+    /* Inputs, selects, textareas */
+    label,[data-testid="stWidgetLabel"] *, .stMarkdown p{color:var(--text) !important;}
+    input,textarea{
+      color:var(--text) !important;background:#fff !important;border:1px solid #c8d4e0 !important;
     }
-    .metric-label {font-size:13px;color:#526579 !important;}
-    .metric-value {font-size:30px;font-weight:850;color:var(--navy) !important;}
-    .metric-note {font-size:11px;color:#7c8da1 !important;}
-    .section {
-        background:var(--navy);color:#fff !important;border-radius:12px;padding:13px 16px;
-        font-weight:750;margin:18px 0 12px 0;
+    input::placeholder,textarea::placeholder{color:#8392a4 !important;opacity:1 !important;}
+    div[data-baseweb="select"] > div{
+      background:#fff !important;color:var(--text) !important;border:1px solid #c8d4e0 !important;
     }
-    .section * {color:#fff !important;}
-
-    /* All Streamlit controls: dark text on light surfaces */
-    label, [data-testid="stWidgetLabel"] *, [data-testid="stMarkdownContainer"] p {
-        color:var(--text);
-    }
-    input, textarea {
-        color:var(--text) !important;
-        background:#ffffff !important;
-        border:1px solid #cbd5e1 !important;
-    }
-    input::placeholder, textarea::placeholder {color:#8190a3 !important;opacity:1 !important;}
-
-    div[data-baseweb="select"] > div {
-        background:#ffffff !important;color:var(--text) !important;
-        border-color:#cbd5e1 !important;
-    }
-    div[data-baseweb="select"] span, div[data-baseweb="select"] input {
-        color:var(--text) !important;
-    }
-    div[data-baseweb="popover"],
-    div[role="listbox"],
-    ul[role="listbox"] {
-        background:#ffffff !important;
-        color:var(--text) !important;
-    }
-    div[role="option"] {
-        color:var(--text) !important;
-        background:#ffffff !important;
-    }
-    div[role="option"]:hover {
-        background:#edf4ff !important;
-        color:var(--navy) !important;
-    }
+    div[data-baseweb="select"] *{color:var(--text) !important;}
+    div[data-baseweb="popover"],div[role="listbox"],ul[role="listbox"]{background:#fff !important;}
+    div[role="option"]{background:#fff !important;color:var(--text) !important;}
+    div[role="option"]:hover{background:var(--blue2) !important;color:var(--navy) !important;}
 
     /* Buttons */
-    .stButton > button,
-    .stDownloadButton > button,
-    button[kind="primary"] {
-        background:var(--navy) !important;
-        color:#ffffff !important;
-        border:1px solid var(--navy) !important;
-        border-radius:9px !important;
-        font-weight:800 !important;
-        min-height:42px !important;
+    .stButton > button,.stDownloadButton > button{
+      background:var(--navy) !important;color:#fff !important;border:1px solid var(--navy) !important;
+      border-radius:9px !important;font-weight:800 !important;min-height:40px;
     }
-    .stButton > button:hover,
-    .stDownloadButton > button:hover,
-    button[kind="primary"]:hover {
-        background:var(--navy-3) !important;
-        color:#ffffff !important;
-        border-color:var(--navy-3) !important;
+    .stButton > button:hover,.stDownloadButton > button:hover{
+      background:#10436d !important;color:#fff !important;border-color:#10436d !important;
     }
-    .stFormSubmitButton > button {
-        background:var(--blue) !important;color:#fff !important;border-color:var(--blue) !important;
+    .stFormSubmitButton > button{
+      background:var(--blue) !important;color:#fff !important;border-color:var(--blue) !important;
+      font-weight:900 !important;min-height:44px !important;
     }
-    .stFormSubmitButton > button:hover {
-        background:#1e40af !important;color:#fff !important;
-    }
+    .stFormSubmitButton > button:hover{background:#1848ab !important;color:#fff !important;}
 
     /* Forms */
-    div[data-testid="stForm"] {
-        background:#ffffff !important;
-        border:1px solid var(--border) !important;
-        border-radius:14px !important;
-        padding:20px !important;
+    div[data-testid="stForm"]{
+      background:#fff !important;border:1px solid var(--border) !important;border-radius:16px !important;
+      padding:23px !important;box-shadow:0 9px 28px rgba(16,42,67,.07) !important;
     }
-    div[data-testid="stForm"] label,
-    div[data-testid="stForm"] p {color:var(--text) !important;}
+    div[data-testid="stForm"] label,div[data-testid="stForm"] p{color:var(--text) !important;}
 
-    /* Dataframes */
-    [data-testid="stDataFrame"] {
-        border:1px solid var(--border) !important;
-        border-radius:10px !important;
-        overflow:hidden !important;
-        background:#ffffff !important;
-    }
+    /* Dataframe */
+    [data-testid="stDataFrame"]{background:#fff !important;border:1px solid var(--border) !important;border-radius:10px !important;overflow:hidden;}
 
-    /* Alerts / info panels */
-    div[data-testid="stAlert"] * {color:inherit !important;}
-
-    .status-ok {color:var(--success) !important;font-weight:700;}
-    .status-warn {color:var(--warning) !important;font-weight:700;}
-    .status-bad {color:var(--danger) !important;font-weight:700;}
-
-    /* Login */
-    .login-shell {
-        min-height:100vh;
-        margin:-2rem -1rem -3rem -1rem;
-        padding:5vh 20px 70px 20px;
-        display:flex;
-        justify-content:center;
-        align-items:flex-start;
-        background:radial-gradient(circle at 80% 10%,#1f4774 0,#0b1d32 38%,#020617 100%);
+    /* Login - all real Streamlit widgets stay inside the centered column */
+    .login-page-bg{
+      background:radial-gradient(circle at 84% 10%,#1c4a78 0%,#0a2038 40%,#020b18 100%) !important;
+      min-height:100vh !important;
     }
-    .login-card {
-        width:min(500px,100%);
-        margin-top:4vh;
-        padding:34px;
-        background:#ffffff !important;
-        border-radius:22px;
-        box-shadow:0 28px 80px rgba(0,0,0,.35);
-        border:1px solid #dbe3ec;
-    }
-    .login-card .login-brand {
-        text-align:center;margin-bottom:25px;
-    }
-    .login-card .login-brand-name {
-        font-size:38px;font-weight:950;color:var(--navy);
-        letter-spacing:2px;
-    }
-    .login-card .login-brand-sub {
-        color:#66788d;font-size:12px;letter-spacing:1.8px;text-transform:uppercase;
-        margin-top:7px;
-    }
-    .login-card h3, .login-card h2 {color:var(--navy) !important;}
-    .login-card .stTextInput label {color:var(--text) !important;}
-    .login-card .stTextInput input {
-        background:#f8fafc !important;color:var(--text) !important;
-        border:1px solid #cbd5e1 !important;border-radius:9px !important;
-    }
-    .small-muted {font-size:11px;color:#64748b !important;}
+    .login-brand-main{text-align:center;color:#fff;font-size:42px;font-weight:950;letter-spacing:2.2px;margin:2vh 0 2px;}
+    .login-brand-line{width:58px;height:3px;background:#4d7ff0;margin:9px auto 11px;border-radius:3px;}
+    .login-brand-sub{text-align:center;color:#c1d2e5;font-size:12px;letter-spacing:2px;text-transform:uppercase;margin-bottom:20px;}
+    .login-small{text-align:center;color:#9eb2c7;font-size:11px;margin-top:15px;}
     </style>
     """,
     unsafe_allow_html=True,
@@ -645,70 +546,80 @@ if "autenticado" not in st.session_state:
 # Login
 # -------------------------
 if not st.session_state.autenticado:
-    bloqueo = st.session_state.bloqueo_hasta
-    st.markdown('<div class="login-shell"><div class="login-card">', unsafe_allow_html=True)
-
+    # Login limpio: columnas reales de Streamlit + formulario real.
     st.markdown(
         """
-        <div class="login-brand">
-            <div class="login-brand-name">DR. SIMI</div>
-            <div style="height:3px;width:58px;background:#1d4ed8;margin:10px auto 12px auto;"></div>
-            <div class="login-brand-sub">Portal Corporativo de Gestión RRHH</div>
-        </div>
+        <style>
+        .stApp{background:radial-gradient(circle at 84% 10%,#1c4a78 0%,#0a2038 40%,#020b18 100%) !important;}
+        [data-testid="stMainViewContainer"]{background:transparent !important;}
+        section[data-testid="stMain"]{background:transparent !important;}
+        .block-container{min-height:100vh;max-width:1200px;padding-top:3vh !important;padding-bottom:40px !important;}
+        div[data-testid="stForm"]{
+          max-width:520px;margin:0 auto !important;background:rgba(255,255,255,.98) !important;
+          border:1px solid rgba(255,255,255,.55) !important;border-radius:20px !important;
+          padding:28px !important;box-shadow:0 24px 70px rgba(0,0,0,.34) !important;
+        }
+        </style>
         """,
-        unsafe_allow_html=True,
+        unsafe_allow_html=True
     )
 
-    if bloqueo and datetime.now() < bloqueo:
-        st.error("Acceso temporalmente bloqueado por múltiples intentos fallidos.")
-        st.markdown("</div></div>", unsafe_allow_html=True)
-        st.stop()
+    spacer_l, center, spacer_r = st.columns([1, 1.2, 1])
+    with center:
+        st.markdown('<div class="login-brand-main">DR. SIMI</div>', unsafe_allow_html=True)
+        st.markdown('<div class="login-brand-line"></div>', unsafe_allow_html=True)
+        st.markdown('<div class="login-brand-sub">Portal Corporativo de Gestión RRHH</div>', unsafe_allow_html=True)
 
-    st.markdown("### 🔐 Identificación segura")
-    st.caption("Ingrese sus credenciales corporativas para acceder al portal.")
+        bloqueo = st.session_state.bloqueo_hasta
+        if bloqueo and datetime.now() < bloqueo:
+            st.error("Acceso temporalmente bloqueado por múltiples intentos fallidos.")
+            st.stop()
 
-    with st.form("login_form", clear_on_submit=False):
-        usuario = st.text_input("Usuario", placeholder="Ingrese su usuario", autocomplete="username")
-        password = st.text_input("Contraseña", type="password", placeholder="Ingrese su contraseña", autocomplete="current-password")
-        ingresar = st.form_submit_button("INGRESAR AL PORTAL", use_container_width=True)
+        with st.form("login_form", clear_on_submit=False):
+            st.markdown(
+                "<div style='text-align:center;font-size:20px;font-weight:850;color:#062543;margin-bottom:18px;'>"
+                "🔐 Identificación segura</div>",
+                unsafe_allow_html=True
+            )
+            usuario = st.text_input("Usuario", placeholder="Ingrese su usuario", autocomplete="username")
+            password = st.text_input("Contraseña", type="password", placeholder="Ingrese su contraseña", autocomplete="current-password")
+            ingresar = st.form_submit_button("INGRESAR AL PORTAL", use_container_width=True)
 
-    st.markdown(
-        '<div class="small-muted" style="text-align:center;margin-top:16px;">Acceso interno · Recursos Humanos · Dr. Simi</div>',
-        unsafe_allow_html=True,
-    )
-    st.markdown("</div></div>", unsafe_allow_html=True)
+        st.markdown(
+            "<div class='login-small'>Acceso interno · Recursos Humanos · Dr. Simi</div>",
+            unsafe_allow_html=True
+        )
 
-    if ingresar:
-        con = db()
-        row = con.execute(
-            "SELECT usuario,password,nombre_completo,rol,activo FROM usuarios WHERE usuario=?",
-            (usuario.strip(),),
-        ).fetchone()
-        con.close()
+        if ingresar:
+            con = db()
+            row = con.execute(
+                "SELECT usuario,password,nombre_completo,rol,activo FROM usuarios WHERE usuario=?",
+                (usuario.strip(),),
+            ).fetchone()
+            con.close()
 
-        if row and row[4] == 1 and verify_password(password, row[1]):
-            if not str(row[1]).startswith("pbkdf2_sha256$"):
-                execute(
-                    "UPDATE usuarios SET password=? WHERE usuario=?",
-                    (hash_password(password), row[0]),
-                )
-            st.session_state.autenticado = True
-            st.session_state.usuario_actual = row[2]
-            st.session_state.usuario_login = row[0]
-            st.session_state.rol_actual = row[3]
-            st.session_state.login_intentos = 0
-            st.session_state.bloqueo_hasta = None
-            audit("LOGIN", f"Inicio de sesión: {row[0]}")
-            st.rerun()
-        else:
-            st.session_state.login_intentos += 1
-            audit("LOGIN_FALLIDO", f"Usuario intentado: {usuario.strip()}")
-            if st.session_state.login_intentos >= 5:
-                st.session_state.bloqueo_hasta = datetime.now() + timedelta(minutes=5)
-                st.error("Demasiados intentos. Espere 5 minutos para volver a intentar.")
+            if row and row[4] == 1 and verify_password(password, row[1]):
+                if not str(row[1]).startswith("pbkdf2_sha256$"):
+                    execute(
+                        "UPDATE usuarios SET password=? WHERE usuario=?",
+                        (hash_password(password), row[0]),
+                    )
+                st.session_state.autenticado = True
+                st.session_state.usuario_actual = row[2]
+                st.session_state.usuario_login = row[0]
+                st.session_state.rol_actual = row[3]
+                st.session_state.login_intentos = 0
+                st.session_state.bloqueo_hasta = None
+                audit("LOGIN", f"Inicio de sesión: {row[0]}")
+                st.rerun()
             else:
-                st.error("Credenciales inválidas o usuario desactivado.")
-
+                st.session_state.login_intentos += 1
+                audit("LOGIN_FALLIDO", f"Usuario intentado: {usuario.strip()}")
+                if st.session_state.login_intentos >= 5:
+                    st.session_state.bloqueo_hasta = datetime.now() + timedelta(minutes=5)
+                    st.error("Demasiados intentos. Espere 5 minutos para volver a intentar.")
+                else:
+                    st.error("Credenciales inválidas o usuario desactivado.")
     st.stop()
 
 
@@ -760,7 +671,7 @@ opcion = st.sidebar.radio("Navegación", menu)
 st.sidebar.markdown("---")
 st.sidebar.caption(f"Sesión: {datetime.now():%d-%m-%Y %H:%M}")
 
-if st.sidebar.button("🚪  Cerrar sesión", use_container_width=True):
+if st.sidebar.button("🚪 CERRAR SESIÓN", use_container_width=True):
     audit("LOGOUT", "Cierre de sesión")
     for key in ["autenticado", "usuario_actual", "rol_actual", "usuario_login"]:
         st.session_state.pop(key, None)
@@ -769,9 +680,22 @@ if st.sidebar.button("🚪  Cerrar sesión", use_container_width=True):
 
 
 def page_title(title, subtitle=""):
-    st.markdown(f'<div class="title">{title}</div>', unsafe_allow_html=True)
-    if subtitle:
-        st.markdown(f'<div class="subtitle">{subtitle}</div>', unsafe_allow_html=True)
+    st.markdown(
+        f"""
+        <div style="display:flex;justify-content:space-between;align-items:flex-end;
+                    border-bottom:1px solid #dce5ee;padding-bottom:12px;margin-bottom:18px;">
+            <div>
+                <div class="title">{title}</div>
+                <div class="subtitle" style="margin-bottom:0;">{subtitle}</div>
+            </div>
+            <div style="text-align:right;font-size:11px;color:#6b7f93;">
+                <b style="color:#0b355c;">{st.session_state.get("rol_actual","")}</b><br>
+                {datetime.now():%d/%m/%Y · %H:%M}
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
 
 # ============================================================
