@@ -233,6 +233,12 @@ st.markdown(
 
     /* Dataframe */
     [data-testid="stDataFrame"]{background:#fff !important;border:1px solid var(--border) !important;border-radius:10px !important;overflow:hidden;}
+    .alert-note{
+      display:inline-block;padding:7px 12px;border-radius:20px;font-size:12px;font-weight:800;
+      margin:0 6px 8px 0;border:1px solid #d7e1eb;background:#f8fafc;color:#34495e;
+    }
+    .alert-danger{background:#ffe3e3;color:#8b1e1e;border-color:#f2b8b8;}
+    .alert-warning{background:#fff0c2;color:#805b00;border-color:#edd38a;}
 
     /* Login - all real Streamlit widgets stay inside the centered column */
     .login-page-bg{
@@ -712,6 +718,31 @@ def get_col(df, aliases, default=""):
     return pd.Series([default] * len(df), index=df.index)
 
 
+def collaborator_default_branch(rut, colabs_df):
+    """Devuelve código, nombre BM y nombre del Directorio para un colaborador."""
+    row = colabs_df[colabs_df["rut"].astype(str) == str(rut)]
+    if row.empty:
+        return "", "", ""
+    r = row.iloc[0]
+    codigo = str(r.get("codigo_sucursal") or "").strip()
+    bm = str(r.get("sucursal_bm") or r.get("sucursal_nombre") or "").strip()
+    nombre_directorio = ""
+    if codigo:
+        su = query_df("SELECT nombre FROM sucursales WHERE codigo=?", (codigo,))
+        if not su.empty:
+            nombre_directorio = str(su.iloc[0, 0] or "").strip()
+    return codigo, bm, nombre_directorio or bm
+
+
+def collaborator_label(rut, colabs_df):
+    row = colabs_df[colabs_df["rut"].astype(str) == str(rut)]
+    if row.empty:
+        return str(rut)
+    r = row.iloc[0]
+    suc = str(r.get("sucursal_bm") or r.get("sucursal_nombre") or "").strip()
+    return f"{r['nombre_completo']} · {suc or 'Sucursal no informada'} ({rut})"
+
+
 # -------------------------
 # Datos oficiales / alertas
 # -------------------------
@@ -790,12 +821,17 @@ def style_alert_rows(df, alert_col="Alerta"):
     if df.empty or alert_col not in df.columns:
         return df
     def row_style(row):
-        color = "#ffe2e2"
-        if str(row.get(alert_col,"")) == "RETORNO PRÓXIMO":
-            color = "#fff1cc"
-        elif str(row.get(alert_col,"")) == "ACTIVO":
-            color = "#eef7ee"
-        return [f"background-color:{color}" for _ in row.index]
+        alert = str(row.get(alert_col,"")).strip().upper()
+        if alert == "RETORNO HOY":
+            bg = "#ffd6d6"
+            fg = "#8b1e1e"
+        elif alert == "RETORNO PRÓXIMO":
+            bg = "#fff0c2"
+            fg = "#805b00"
+        else:
+            bg = "#ffe3e3"
+            fg = "#7f1d1d"
+        return [f"background-color:{bg}; color:{fg}; font-weight:600;" for _ in row.index]
     return df.style.apply(row_style, axis=1)
 
 
@@ -944,7 +980,16 @@ if st.session_state.rol_actual == "Admin Supremo":
     menu += ["👤 Usuarios", "🛡️ Auditoría", "⚙️ Configuración"]
 
 menu.append("ℹ️ Ayuda")
-opcion = st.sidebar.radio("Navegación", menu)
+
+# Navegación programática para acciones como "Programar cobertura".
+if "navigate_to" not in st.session_state:
+    st.session_state.navigate_to = None
+default_index = 0
+if st.session_state.navigate_to in menu:
+    default_index = menu.index(st.session_state.navigate_to)
+    st.session_state.navigate_to = None
+
+opcion = st.sidebar.radio("Navegación", menu, index=default_index, key="menu_principal")
 
 st.sidebar.markdown("---")
 st.sidebar.caption(f"Sesión: {datetime.now():%d-%m-%Y %H:%M}")
@@ -1020,13 +1065,56 @@ if opcion == "🏠 Inicio / Dashboard":
     if active_df.empty:
         st.success("🟢 No hay personas con ausentismo activo según las fechas cargadas.")
     else:
-        st.warning(f"⚠️ Actualmente hay **{len(active_df)} registros de ausentismo activos**. Revise las coberturas asociadas.")
-        st.dataframe(style_alert_rows(active_df), use_container_width=True, hide_index=True)
+        c_a1, c_a2 = st.columns(2)
+        c_a1.markdown(
+            f'<div class="alert-note alert-danger">🔴 {len(active_df)} AUSENCIAS ACTIVAS</div>',
+            unsafe_allow_html=True
+        )
+        hoy_count = int((active_df["Alerta"] == "RETORNO HOY").sum()) if "Alerta" in active_df.columns else 0
+        prox_count = int((active_df["Alerta"] == "RETORNO PRÓXIMO").sum()) if "Alerta" in active_df.columns else 0
+        c_a2.markdown(
+            f'<div class="alert-note alert-warning">🟡 {hoy_count} retorno hoy · {prox_count} retorno próximo</div>',
+            unsafe_allow_html=True
+        )
+        st.dataframe(
+            style_alert_rows(active_df),
+            use_container_width=True,
+            hide_index=True,
+            height=430,
+            column_config={
+                "ID": st.column_config.NumberColumn("ID", width="small"),
+                "RUT": st.column_config.TextColumn("RUT", width="medium"),
+                "Colaborador": st.column_config.TextColumn("Colaborador", width="large"),
+                "Cargo": st.column_config.TextColumn("Cargo", width="large"),
+                "Sucursal": st.column_config.TextColumn("Sucursal", width="medium"),
+                "Tipo Ausencia": st.column_config.TextColumn("Tipo de ausencia", width="medium"),
+                "Fecha Inicio": st.column_config.TextColumn("Desde", width="small"),
+                "Fecha Término": st.column_config.TextColumn("Hasta", width="small"),
+                "Días restantes": st.column_config.NumberColumn("Días restantes", width="small"),
+                "Alerta": st.column_config.TextColumn("Alerta", width="medium"),
+            },
+        )
 
     if not soon_df.empty:
         st.info(f"📅 Hay **{len(soon_df)} ausentismos futuros** dentro de los próximos 7 días.")
         with st.expander("Ver próximos ausentismos"):
-            st.dataframe(soon_df, use_container_width=True, hide_index=True)
+            st.dataframe(
+                soon_df,
+                use_container_width=True,
+                hide_index=True,
+                height=380,
+                column_config={
+                    "ID": st.column_config.NumberColumn("ID", width="small"),
+                    "RUT": st.column_config.TextColumn("RUT", width="medium"),
+                    "Colaborador": st.column_config.TextColumn("Colaborador", width="large"),
+                    "Cargo": st.column_config.TextColumn("Cargo", width="large"),
+                    "Sucursal": st.column_config.TextColumn("Sucursal", width="medium"),
+                    "Tipo Ausencia": st.column_config.TextColumn("Tipo de ausencia", width="medium"),
+                    "Fecha Inicio": st.column_config.TextColumn("Desde", width="small"),
+                    "Fecha Término": st.column_config.TextColumn("Hasta", width="small"),
+                    "Días": st.column_config.NumberColumn("Días", width="small"),
+                },
+            )
 
     c1, c2 = st.columns(2)
     with c1:
@@ -1060,7 +1148,9 @@ elif opcion == "👥 Personas":
 
     df = query_df("""
         SELECT c.rut AS RUT, c.nombre_completo AS Colaborador,
-               c.cargo AS Cargo, COALESCE(c.sucursal_nombre,s.nombre,c.sucursal_bm) AS Sucursal,
+               c.cargo AS Cargo,
+               COALESCE(c.sucursal_bm,c.sucursal_nombre,s.nombre) AS "Sucursal BM",
+               s.nombre AS "Sucursal Directorio",
                c.jornada_horas AS Jornada, c.celular AS Celular,
                c.email AS Email, c.activo AS Activo
         FROM colaboradores c
@@ -1099,8 +1189,8 @@ elif opcion == "👥 Personas":
 
             a, b, c = st.columns(3)
             a.write(f"**RUT:** {r['rut']}")
-            b.write(f"**Sucursal:** {r['sucursal_nombre'] or 'Sin asignar'}")
-            c.write(f"**Región:** {r['region'] or 'Sin informar'}")
+            b.write(f"**Sucursal BM:** {r.get('sucursal_bm') or r.get('sucursal_nombre') or 'Sin informar'}")
+            c.write(f"**Sucursal Directorio:** {r.get('sucursal_nombre') or 'Sin cruce'}")
             st.write(f"**Contacto:** {r['celular'] or '-'} · {r['email'] or '-'}")
 
             t1, t2, t3, t4 = st.tabs(["Asistencia", "Licencias", "Vacaciones", "Coberturas"])
@@ -1289,121 +1379,351 @@ elif opcion == "🏖️ Vacaciones y Permisos":
 # LICENCIAS
 # ============================================================
 elif opcion == "🏥 Licencias":
-    page_title("Licencias Médicas", "Control y seguimiento del ausentismo por licencia.")
+    page_title(
+        "Licencias Médicas",
+        "Consulta del ausentismo cargado oficialmente. Las licencias no se ingresan manualmente.",
+    )
 
-    with st.form("lic_form"):
-        rut = st.text_input("RUT")
-        nombre = st.text_input("Nombre")
-        apellido_p = st.text_input("Apellido paterno")
-        apellido_m = st.text_input("Apellido materno")
-        cargo = st.text_input("Cargo")
-        sucursal = st.text_input("Sucursal")
-        tipo = st.selectbox("Tipo de ausencia", ["Licencia Médica","Pre y post natal","Accidente","Otro"])
-        estado = st.selectbox("Estado", ["Aprobada","Pendiente","Rechazada"])
-        c1,c2 = st.columns(2)
-        f1 = c1.date_input("Fecha inicio", value=date.today())
-        f2 = c2.date_input("Fecha término", value=date.today())
-        dias = c2.number_input("Días", min_value=1, value=max(1,(f2-f1).days+1))
-        guardar = st.form_submit_button("💾 Registrar licencia", use_container_width=True)
+    st.markdown(
+        '<div class="section">🏥 Ausentismo oficial de licencias</div>',
+        unsafe_allow_html=True,
+    )
+    st.info(
+        "ℹ️ Esta pantalla es de consulta y programación. Las licencias médicas provienen del "
+        "histórico oficial de ausentismo y no deben registrarse manualmente aquí."
+    )
 
-    if guardar:
-        if f2 < f1:
-            st.error("La fecha de término no puede ser anterior al inicio.")
-        elif not rut or not nombre:
-            st.error("RUT y nombre son obligatorios.")
-        else:
-            execute("""
-                INSERT INTO licencias(rut,nombre,apellido_p,apellido_m,sucursal,cargo,fecha_desde,fecha_hasta,dias,tipo_ausencia,estado)
-                VALUES(?,?,?,?,?,?,?,?,?,?,?)
-            """, (rut.strip(),nombre.strip(),apellido_p.strip(),apellido_m.strip(),sucursal.strip(),cargo.strip(),
-                  f1.isoformat(),f2.isoformat(),int(dias),tipo,estado))
-            audit("LICENCIA", f"{rut} {f1} a {f2} {estado}")
-            st.cache_data.clear()
-            st.success("Licencia registrada correctamente.")
+    activos = current_absences(3000)
+    if not activos.empty:
+        activos = activos[
+            activos["Tipo Ausencia"].astype(str).str.contains("licencia", case=False, na=False)
+        ].copy()
 
-    df = query_df("""
-        SELECT id ID,rut RUT,nombre Nombre,apellido_p Apellido_Paterno,apellido_m Apellido_Materno,
-               sucursal Sucursal,cargo Cargo,fecha_desde Inicio,fecha_hasta Termino,
-               dias Días,tipo_ausencia Tipo,estado Estado
-        FROM licencias ORDER BY date(fecha_desde) DESC
+    filtro_lm = st.text_input("🔎 Filtrar por persona, RUT, sucursal o tipo", key="filtro_lm")
+    if filtro_lm and not activos.empty:
+        mask = activos.astype(str).apply(
+            lambda col: col.str.contains(filtro_lm, case=False, na=False)
+        ).any(axis=1)
+        activos = activos[mask]
+
+    x1, x2, x3 = st.columns(3)
+    x1.metric("Licencias activas hoy", len(activos))
+    x2.metric(
+        "Retorno hoy",
+        int((activos["Alerta"] == "RETORNO HOY").sum()) if not activos.empty else 0,
+    )
+    x3.metric(
+        "Retorno próximo",
+        int((activos["Alerta"] == "RETORNO PRÓXIMO").sum()) if not activos.empty else 0,
+    )
+
+    if activos.empty:
+        st.success("🟢 No hay licencias médicas activas hoy con la información cargada.")
+    else:
+        st.dataframe(
+            style_alert_rows(activos),
+            use_container_width=True,
+            hide_index=True,
+            height=450,
+            column_config={
+                "ID": st.column_config.NumberColumn("ID", width="small"),
+                "RUT": st.column_config.TextColumn("RUT", width="medium"),
+                "Colaborador": st.column_config.TextColumn("Colaborador", width="large"),
+                "Cargo": st.column_config.TextColumn("Cargo", width="large"),
+                "Sucursal": st.column_config.TextColumn("Sucursal", width="medium"),
+                "Tipo Ausencia": st.column_config.TextColumn("Tipo de ausencia", width="medium"),
+                "Fecha Inicio": st.column_config.TextColumn("Desde", width="small"),
+                "Fecha Término": st.column_config.TextColumn("Hasta", width="small"),
+                "Días": st.column_config.NumberColumn("Días", width="small"),
+                "Días restantes": st.column_config.NumberColumn("Restantes", width="small"),
+                "Alerta": st.column_config.TextColumn("Alerta", width="medium"),
+            },
+        )
+
+        st.markdown('<div class="section">🔄 Programar cobertura para una licencia</div>', unsafe_allow_html=True)
+        opciones = activos["ID"].astype(str).tolist()
+        seleccion = st.selectbox(
+            "Seleccione la licencia a cubrir",
+            opciones,
+            format_func=lambda ident: (
+                activos.loc[activos["ID"].astype(str) == str(ident), "Colaborador"].iloc[0]
+                + " · "
+                + activos.loc[activos["ID"].astype(str) == str(ident), "Sucursal"].iloc[0]
+                + " · "
+                + activos.loc[activos["ID"].astype(str) == str(ident), "Fecha Inicio"].iloc[0]
+                + " → "
+                + activos.loc[activos["ID"].astype(str) == str(ident), "Fecha Término"].iloc[0]
+            ),
+            key="lm_a_programar",
+        )
+        if st.button("🚀 Programar cobertura de esta licencia", type="primary", use_container_width=True):
+            r = activos[activos["ID"].astype(str) == str(seleccion)].iloc[0]
+            st.session_state.preprogramar_cobertura = {
+                "rut_reemplaza": str(r["RUT"]),
+                "sucursal": str(r["Sucursal"]),
+                "inicio": str(r["Fecha Inicio"]),
+                "termino": str(r["Fecha Término"]),
+                "motivo": "Licencia Médica",
+                "ausencia_id": str(r["ID"]),
+            }
+            st.session_state.navigate_to = "🔄 Coberturas y Movimientos"
+            st.rerun()
+
+    st.markdown('<div class="section">📚 Historial de licencias cargadas</div>', unsafe_allow_html=True)
+    hist_lm = query_df("""
+        SELECT id ID, rut RUT, nombre Colaborador, cargo Cargo, sucursal Sucursal,
+               tipo_ausencia 'Tipo de ausencia', fecha_inicio Desde, fecha_fin Hasta,
+               dias Días, fecha_creacion 'Fecha creación'
+        FROM ausentismo_historico
+        WHERE lower(tipo_ausencia) LIKE '%licencia%'
+        ORDER BY date(fecha_inicio) DESC, id DESC
+        LIMIT 5000
     """)
-    st.dataframe(df, use_container_width=True, hide_index=True)
-    if not df.empty:
-        st.download_button("📥 Descargar Excel", excel_bytes(df, "Licencias"), "licencias.xlsx",
-                           "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    if hist_lm.empty:
+        st.info("No existen registros históricos de licencias en la base.")
+    else:
+        st.dataframe(hist_lm, use_container_width=True, hide_index=True)
+        st.download_button(
+            "📥 Descargar historial de licencias",
+            excel_bytes(hist_lm, "Licencias"),
+            "historial_licencias.xlsx",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
 
 
 # ============================================================
 # COBERTURAS
 # ============================================================
 elif opcion == "🔄 Coberturas y Movimientos":
-    page_title("Coberturas y Movimientos", "Asignación de apoyo, reemplazos y jornada neta.")
+    page_title(
+        "Coberturas y Movimientos",
+        "Programación de reemplazos con sucursal habitual precargada y editable.",
+    )
 
-    colabs = query_df("SELECT rut,nombre_completo,codigo_sucursal,cargo FROM colaboradores WHERE activo=1 ORDER BY nombre_completo")
+    colabs = query_df("""
+        SELECT rut,nombre_completo,codigo_sucursal,cargo,jornada_horas,sucursal_nombre,sucursal_bm
+        FROM colaboradores
+        WHERE activo=1
+        ORDER BY nombre_completo
+    """)
     sucs = query_df("SELECT codigo,nombre FROM sucursales ORDER BY nombre")
 
     if colabs.empty or sucs.empty:
         st.warning("Carga primero colaboradores y sucursales.")
     else:
+        # ----------------------------------------------------
+        # Programación rápida desde una licencia/ausencia activa
+        # ----------------------------------------------------
+        pre = st.session_state.get("preprogramar_cobertura", {})
+        active_all = current_absences(3000)
+        if not active_all.empty:
+            active_all = active_all.copy()
+
+        st.markdown('<div class="section">🎯 1. Colaborador que será cubierto</div>', unsafe_allow_html=True)
+
+        target_options = colabs["rut"].tolist()
+        target_default = 0
+        if pre.get("rut_reemplaza") in target_options:
+            target_default = target_options.index(pre["rut_reemplaza"])
+
+        rut_reemplaza = st.selectbox(
+            "Persona ausente / a cubrir",
+            target_options,
+            index=target_default,
+            format_func=lambda r: collaborator_label(r, colabs),
+            key="cov_target",
+        )
+
+        target_code, target_bm, target_dir = collaborator_default_branch(rut_reemplaza, colabs)
+
+        c1, c2 = st.columns(2)
+        with c1:
+            st.markdown(
+                f"<div class='card'><div class='metric-label'>Sucursal habitual del colaborador (BM)</div>"
+                f"<div style='font-size:19px;font-weight:850;color:#062543'>{target_bm or 'No informada'}</div>"
+                f"<div class='metric-note'>Origen de la información: columna BM · Sucursal</div></div>",
+                unsafe_allow_html=True,
+            )
+        with c2:
+            st.markdown(
+                f"<div class='card'><div class='metric-label'>Sucursal vinculada en Directorio</div>"
+                f"<div style='font-size:19px;font-weight:850;color:#062543'>{target_dir or 'Sin cruce'}</div>"
+                f"<div class='metric-note'>Código: {target_code or 'No encontrado'}</div></div>",
+                unsafe_allow_html=True,
+            )
+
+        if not target_code:
+            st.warning(
+                "⚠️ Esta persona no tiene código de sucursal asociado al Directorio. "
+                "La sucursal BM sigue visible y puede seleccionar manualmente la sucursal a cubrir."
+            )
+
+        dest_codes = sucs["codigo"].tolist()
+        dest_default = dest_codes.index(target_code) if target_code in dest_codes else 0
+        suc_dest = st.selectbox(
+            "🏪 Sucursal a cubrir",
+            dest_codes,
+            index=dest_default,
+            format_func=lambda c: sucs.loc[sucs["codigo"] == c, "nombre"].iloc[0],
+            key="cov_destino",
+        )
+
+        st.markdown('<div class="section">👤 2. Colaborador de apoyo</div>', unsafe_allow_html=True)
+        support_options = colabs["rut"].tolist()
+        rut_apoyo = st.selectbox(
+            "Colaborador que realizará la cobertura",
+            support_options,
+            format_func=lambda r: collaborator_label(r, colabs),
+            key="cov_support",
+        )
+        support_code, support_bm, support_dir = collaborator_default_branch(rut_apoyo, colabs)
+
+        c1, c2 = st.columns(2)
+        with c1:
+            st.markdown(
+                f"<div class='card'><div class='metric-label'>Sucursal habitual del apoyo (BM)</div>"
+                f"<div style='font-size:19px;font-weight:850;color:#062543'>{support_bm or 'No informada'}</div>"
+                f"<div class='metric-note'>El sistema la usa como sucursal de origen inicial</div></div>",
+                unsafe_allow_html=True,
+            )
+        with c2:
+            st.markdown(
+                f"<div class='card'><div class='metric-label'>Sucursal origen seleccionable</div>"
+                f"<div style='font-size:19px;font-weight:850;color:#062543'>{support_dir or 'Sin cruce'}</div>"
+                f"<div class='metric-note'>Puede cambiarse para esta cobertura</div></div>",
+                unsafe_allow_html=True,
+            )
+
+        orig_codes = sucs["codigo"].tolist()
+        orig_default = orig_codes.index(support_code) if support_code in orig_codes else 0
+        suc_origen = st.selectbox(
+            "🏪 Sucursal de origen del apoyo",
+            orig_codes,
+            index=orig_default,
+            format_func=lambda c: sucs.loc[sucs["codigo"] == c, "nombre"].iloc[0],
+            key="cov_origen",
+        )
+
+        # ----------------------------------------------------
+        # Datos de la ausencia / fechas
+        # ----------------------------------------------------
+        default_inicio = date.today()
+        default_termino = date.today()
+        default_motivo = "Cobertura Vacaciones QF"
+        if pre:
+            try:
+                default_inicio = datetime.strptime(str(pre.get("inicio")), "%Y-%m-%d").date()
+            except Exception:
+                pass
+            try:
+                default_termino = datetime.strptime(str(pre.get("termino")), "%Y-%m-%d").date()
+            except Exception:
+                pass
+            if pre.get("motivo"):
+                default_motivo = pre["motivo"]
+
         with st.form("cobertura_form"):
-            c1,c2 = st.columns(2)
-            rut_apoyo = c1.selectbox(
-                "Colaborador de apoyo", colabs["rut"].tolist(),
-                format_func=lambda r: colabs.loc[colabs["rut"]==r,"nombre_completo"].iloc[0]
+            st.markdown('<div class="section">📅 3. Período y motivo</div>', unsafe_allow_html=True)
+            c1, c2 = st.columns(2)
+            inicio = c1.date_input(
+                "Fecha inicio cobertura",
+                value=default_inicio,
+                key=f"cov_inicio_{pre.get('ausencia_id','manual')}",
             )
-            rut_reemplaza = c2.selectbox(
-                "¿A quién cubre?",
-                [""] + colabs["rut"].tolist(),
-                format_func=lambda r: "Apoyo por alta demanda" if r=="" else colabs.loc[colabs["rut"]==r,"nombre_completo"].iloc[0]
+            termino = c2.date_input(
+                "Fecha término cobertura",
+                value=default_termino,
+                key=f"cov_termino_{pre.get('ausencia_id','manual')}",
             )
-            suc_origen = c1.selectbox("Sucursal origen", sucs["codigo"].tolist(),
-                                      format_func=lambda c: sucs.loc[sucs["codigo"]==c,"nombre"].iloc[0])
-            suc_dest = c2.selectbox("Sucursal destino", sucs["codigo"].tolist(),
-                                    format_func=lambda c: sucs.loc[sucs["codigo"]==c,"nombre"].iloc[0])
 
-            motivo = st.selectbox("Motivo", ["Cobertura Vacaciones QF","Licencia Médica","Permiso Administrativo",
-                                             "Refuerzo Apertura","Refuerzo Cierre","Otro"])
-            motivo_final = st.text_input("Detalle del motivo") if motivo=="Otro" else motivo
+            motivos = ["Cobertura Vacaciones QF","Licencia Médica","Permiso Administrativo",
+                       "Refuerzo Apertura","Refuerzo Cierre","Otro"]
+            motivo_default_index = motivos.index(default_motivo) if default_motivo in motivos else 0
+            motivo = st.selectbox("Motivo", motivos, index=motivo_default_index)
+            motivo_final = st.text_input(
+                "Detalle del motivo",
+                value="" if motivo != "Otro" else default_motivo if default_motivo not in motivos else "",
+            ) if motivo == "Otro" else motivo
 
-            st.markdown("#### ⏱️ Jornada")
+            st.markdown('<div class="section">⏱️ 4. Jornada de cobertura</div>', unsafe_allow_html=True)
             dias_sem = ["Lunes","Martes","Miércoles","Jueves","Viernes","Sábado","Domingo"]
             horas = []
-            for i in range(7):
-                a,b,c = st.columns([1.2,1.2,1.2])
-                activo = a.checkbox(dias_sem[i], key=f"cov_act_{i}")
-                ent = b.time_input("Entrada", value=time(9,0), key=f"cov_ent_{i}")
-                sal = c.time_input("Salida", value=time(18,0), key=f"cov_sal_{i}")
-                if activo:
-                    horas.append((dias_sem[i],ent,sal))
-            colacion = st.number_input("Colación por día (min)", min_value=0,max_value=180,value=30,step=5)
-            f1,f2 = st.columns(2)
-            inicio = f1.date_input("Inicio cobertura", value=date.today())
-            termino = f2.date_input("Fin cobertura", value=date.today())
-            guardar = st.form_submit_button("💾 Guardar cobertura", use_container_width=True)
+            cols = st.columns(3)
+            for i, dia in enumerate(dias_sem):
+                col = cols[i % 3]
+                with col:
+                    activo = st.checkbox(dia, key=f"cov_act_{i}")
+                    ent = st.time_input("Entrada", value=time(9,0), key=f"cov_ent_{i}")
+                    sal = st.time_input("Salida", value=time(18,0), key=f"cov_sal_{i}")
+                    if activo:
+                        horas.append((dia, ent, sal))
+
+            colacion = st.number_input(
+                "Colación por día (min)",
+                min_value=0,
+                max_value=180,
+                value=30,
+                step=5,
+            )
+
+            guardar = st.form_submit_button(
+                "💾 GUARDAR COBERTURA OFICIAL",
+                use_container_width=True,
+            )
 
         if guardar:
             if termino < inicio:
-                st.error("El fin no puede ser anterior al inicio.")
+                st.error("La fecha de término no puede ser anterior al inicio.")
             elif not horas:
-                st.error("Seleccione al menos un día.")
+                st.error("Seleccione al menos un día de la semana.")
             else:
-                total = sum(net_hours(e,s,colacion) for _,e,s in horas)
-                detalle = " | ".join([f"{d[:3]} {e:%H:%M}-{s:%H:%M}" for d,e,s in horas])
-                detalle += f" | Jornada semanal configurada: {total:.2f} h | Colación: {colacion} min"
-                execute("""
-                    INSERT INTO movimientos(fecha_registro,usuario_realiza,rut_colaborador,sucursal_origen,
-                    sucursal_destino,rut_reemplazado,fecha_inicio,fecha_fin,nuevo_horario,motivo)
-                    VALUES(?,?,?,?,?,?,?,?,?,?)
-                """, (datetime.now(), st.session_state.usuario_actual, rut_apoyo, suc_origen, suc_dest,
-                      rut_reemplaza or None, inicio.isoformat(), termino.isoformat(), detalle, motivo_final))
-                audit("COBERTURA", f"{rut_apoyo} {suc_origen}->{suc_dest} {inicio}->{termino} {total:.2f}h")
-                st.cache_data.clear()
-                st.success("Cobertura registrada correctamente.")
+                total = sum(net_hours(e, s_, colacion) for _, e, s_ in horas)
+                if total <= 0:
+                    st.error("La jornada configurada no genera horas netas.")
+                else:
+                    detalle = " | ".join(
+                        [f"{d[:3]} {e:%H:%M}-{s_:%H:%M}" for d,e,s_ in horas]
+                    )
+                    detalle += (
+                        f" | Jornada semanal configurada: {total:.2f} h"
+                        f" | Colación: {colacion} min"
+                        f" | BM apoyo: {support_bm or 'Sin informar'}"
+                        f" | BM cubierto: {target_bm or 'Sin informar'}"
+                    )
 
+                    execute("""
+                        INSERT INTO movimientos(
+                            fecha_registro,usuario_realiza,rut_colaborador,sucursal_origen,
+                            sucursal_destino,rut_reemplazado,fecha_inicio,fecha_fin,
+                            nuevo_horario,motivo
+                        )
+                        VALUES(?,?,?,?,?,?,?,?,?,?)
+                    """, (
+                        datetime.now(), st.session_state.usuario_actual, rut_apoyo,
+                        suc_origen, suc_dest, rut_reemplaza or None,
+                        inicio.isoformat(), termino.isoformat(), detalle, motivo_final
+                    ))
+
+                    audit(
+                        "COBERTURA",
+                        f"{rut_apoyo} {suc_origen}->{suc_dest} cubre {rut_reemplaza} "
+                        f"{inicio}->{termino} {total:.2f}h"
+                    )
+                    st.cache_data.clear()
+                    st.success("✅ Cobertura registrada correctamente.")
+
+                    # El formulario deja de quedar vinculado a una ausencia antigua.
+                    st.session_state.preprogramar_cobertura = {}
+
+        st.markdown('<div class="section">📋 Coberturas registradas</div>', unsafe_allow_html=True)
         df = query_df("""
-            SELECT m.id ID,m.fecha_registro Registro,c.nombre_completo Colaborador,
-                   so.nombre Origen,sd.nombre Destino,c2.nombre_completo 'Cubrió a',
-                   m.fecha_inicio Inicio,m.fecha_fin Término,m.nuevo_horario Jornada,m.motivo Motivo
+            SELECT m.id ID,m.fecha_registro Registro,
+                   c.nombre_completo Colaborador de Apoyo,
+                   so.nombre Origen,
+                   sd.nombre Destino,
+                   c2.nombre_completo 'Persona Cubierta',
+                   m.fecha_inicio Inicio,m.fecha_fin Término,
+                   m.nuevo_horario Jornada,m.motivo Motivo
             FROM movimientos m
             LEFT JOIN colaboradores c ON m.rut_colaborador=c.rut
             LEFT JOIN colaboradores c2 ON m.rut_reemplazado=c2.rut
@@ -1411,7 +1731,16 @@ elif opcion == "🔄 Coberturas y Movimientos":
             LEFT JOIN sucursales sd ON m.sucursal_destino=sd.codigo
             ORDER BY m.id DESC
         """)
-        st.dataframe(df, use_container_width=True, hide_index=True)
+        if df.empty:
+            st.info("No hay coberturas registradas.")
+        else:
+            st.dataframe(df, use_container_width=True, hide_index=True)
+            st.download_button(
+                "📥 Descargar coberturas",
+                excel_bytes(df, "Coberturas"),
+                "coberturas.xlsx",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
 
 
 # ============================================================
@@ -1791,7 +2120,8 @@ elif opcion == "⚙️ Configuración":
 
     with tab2:
         st.markdown('<div class="section">📦 Paquete oficial de actualización</div>', unsafe_allow_html=True)
-        st.caption("Use los cuatro archivos oficiales de operación. La sucursal del colaborador se toma exclusivamente desde la columna BM 'Sucursal' de la nómina y se cruza con 'NOMBRE SUCURSAL' del Directorio.")
+        st.caption("Use los cuatro archivos oficiales. La sucursal del colaborador se toma exclusivamente desde la columna BM 'Sucursal' de la nómina y se cruza con 'NOMBRE SUCURSAL' del Directorio.")
+        st.info("💡 Puede cargar los cuatro archivos juntos. El sistema procesa en orden: Directorio → Empleados (BM) → Ausentismo → Vacaciones/Permisos.")
 
         f_dir = st.file_uploader("1. Directorio de sucursales", type=["xlsx"], key="official_dir")
         f_emp = st.file_uploader("2. Lista de empleados", type=["xlsx"], key="official_emp")
@@ -1823,7 +2153,7 @@ elif opcion == "⚙️ Configuración":
                         curx.execute("""INSERT INTO sucursales
                         (codigo,nombre,direccion,comuna,ciudad,region,telefono,director_tecnico,telfdt,dt_complementario,telfdt2,
                          horario_lunes_viernes,horario_sabado,horario_domingo,fecha_apertura,supervisor,jefe_comercial,email,geolocalizacion,ecommerce,latitud,longitud)
-                        VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                        VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                         ON CONFLICT(codigo) DO UPDATE SET nombre=excluded.nombre,direccion=excluded.direccion,
                         comuna=excluded.comuna,ciudad=excluded.ciudad,region=excluded.region,
                         director_tecnico=excluded.director_tecnico,dt_complementario=excluded.dt_complementario,
