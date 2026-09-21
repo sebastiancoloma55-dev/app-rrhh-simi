@@ -82,58 +82,196 @@ PERMISSIONS = {
 st.markdown(
     """
     <style>
-    #MainMenu, footer {visibility:hidden;}
-    header {visibility:hidden;}
-    .block-container {padding-top:2rem; padding-bottom:3rem; max-width:1500px;}
+    :root {
+        --navy:#08233f;
+        --navy-2:#0b3158;
+        --navy-3:#123f68;
+        --blue:#1d4ed8;
+        --blue-soft:#eaf2ff;
+        --text:#102a43;
+        --muted:#64748b;
+        --border:#d7e0ea;
+        --bg:#f5f7fa;
+        --white:#ffffff;
+        --danger:#b91c1c;
+        --warning:#a16207;
+        --success:#166534;
+    }
+
+    #MainMenu, footer, header {visibility:hidden;}
+    .stApp {background:var(--bg) !important;color:var(--text) !important;}
+    .block-container {padding-top:2rem;padding-bottom:3rem;max-width:1500px;}
+
+    /* Sidebar */
     [data-testid="stSidebar"] {
-        background: linear-gradient(180deg,#08233f 0%,#0b3158 100%);
+        background:linear-gradient(180deg,var(--navy) 0%,var(--navy-2) 100%) !important;
+        border-right:1px solid rgba(255,255,255,.08);
     }
-    [data-testid="stSidebar"] * {color:#fff !important;}
+    [data-testid="stSidebar"] * {color:#ffffff !important;}
+    [data-testid="stSidebar"] p,
+    [data-testid="stSidebar"] span,
+    [data-testid="stSidebar"] label {color:#ffffff !important;}
+    [data-testid="stSidebar"] .stRadio label {color:#ffffff !important;font-weight:600 !important;}
+    [data-testid="stSidebar"] .stRadio > div {gap:4px;}
+    [data-testid="stSidebar"] .stButton > button {
+        background:#ffffff !important;
+        color:var(--navy) !important;
+        border:1px solid #dbe3ec !important;
+        font-weight:800 !important;
+        box-shadow:none !important;
+    }
+    [data-testid="stSidebar"] .stButton > button:hover {
+        background:#edf4ff !important;
+        color:var(--navy) !important;
+        border-color:#b9cae0 !important;
+    }
+
     .brand {
-        padding: 10px 4px 18px 4px;
-        text-align:center;
-        border-bottom:1px solid rgba(255,255,255,.14);
-        margin-bottom:15px;
+        padding:10px 4px 18px 4px;text-align:center;
+        border-bottom:1px solid rgba(255,255,255,.16);margin-bottom:15px;
     }
-    .brand-title {font-size:25px;font-weight:900;letter-spacing:1px;}
-    .brand-sub {font-size:11px;opacity:.7;letter-spacing:1px;text-transform:uppercase;}
-    .title {font-size:31px;font-weight:850;color:#08233f;margin-bottom:3px;}
-    .subtitle {color:#64748b;margin-bottom:22px;}
+    .brand-title {font-size:25px;font-weight:900;letter-spacing:1px;color:#fff;}
+    .brand-sub {font-size:11px;opacity:.82;letter-spacing:1px;text-transform:uppercase;color:#dbeafe;}
+
+    /* Main text */
+    .title {font-size:31px;font-weight:850;color:var(--navy) !important;margin-bottom:3px;}
+    .subtitle {color:var(--muted) !important;margin-bottom:22px;}
+    h1,h2,h3,h4,h5,h6 {color:var(--navy) !important;}
+
+    /* Cards */
     .card {
-        background:#fff;border:1px solid #e2e8f0;border-radius:16px;
-        padding:20px;box-shadow:0 5px 20px rgba(15,23,42,.06);
-        height:100%;
+        background:var(--white);border:1px solid var(--border);border-radius:16px;
+        padding:20px;box-shadow:0 5px 20px rgba(15,23,42,.06);height:100%;
     }
-    .metric-label {font-size:13px;color:#64748b;}
-    .metric-value {font-size:30px;font-weight:850;color:#08233f;}
-    .metric-note {font-size:11px;color:#94a3b8;}
+    .metric-label {font-size:13px;color:#526579 !important;}
+    .metric-value {font-size:30px;font-weight:850;color:var(--navy) !important;}
+    .metric-note {font-size:11px;color:#7c8da1 !important;}
     .section {
-        background:#08233f;color:#fff;border-radius:12px;padding:13px 16px;
+        background:var(--navy);color:#fff !important;border-radius:12px;padding:13px 16px;
         font-weight:750;margin:18px 0 12px 0;
     }
-    .status-ok {color:#166534;font-weight:700;}
-    .status-warn {color:#a16207;font-weight:700;}
-    .status-bad {color:#b91c1c;font-weight:700;}
+    .section * {color:#fff !important;}
+
+    /* All Streamlit controls: dark text on light surfaces */
+    label, [data-testid="stWidgetLabel"] *, [data-testid="stMarkdownContainer"] p {
+        color:var(--text);
+    }
+    input, textarea {
+        color:var(--text) !important;
+        background:#ffffff !important;
+        border:1px solid #cbd5e1 !important;
+    }
+    input::placeholder, textarea::placeholder {color:#8190a3 !important;opacity:1 !important;}
+
+    div[data-baseweb="select"] > div {
+        background:#ffffff !important;color:var(--text) !important;
+        border-color:#cbd5e1 !important;
+    }
+    div[data-baseweb="select"] span, div[data-baseweb="select"] input {
+        color:var(--text) !important;
+    }
+    div[data-baseweb="popover"],
+    div[role="listbox"],
+    ul[role="listbox"] {
+        background:#ffffff !important;
+        color:var(--text) !important;
+    }
+    div[role="option"] {
+        color:var(--text) !important;
+        background:#ffffff !important;
+    }
+    div[role="option"]:hover {
+        background:#edf4ff !important;
+        color:var(--navy) !important;
+    }
+
+    /* Buttons */
+    .stButton > button,
+    .stDownloadButton > button,
+    button[kind="primary"] {
+        background:var(--navy) !important;
+        color:#ffffff !important;
+        border:1px solid var(--navy) !important;
+        border-radius:9px !important;
+        font-weight:800 !important;
+        min-height:42px !important;
+    }
+    .stButton > button:hover,
+    .stDownloadButton > button:hover,
+    button[kind="primary"]:hover {
+        background:var(--navy-3) !important;
+        color:#ffffff !important;
+        border-color:var(--navy-3) !important;
+    }
+    .stFormSubmitButton > button {
+        background:var(--blue) !important;color:#fff !important;border-color:var(--blue) !important;
+    }
+    .stFormSubmitButton > button:hover {
+        background:#1e40af !important;color:#fff !important;
+    }
+
+    /* Forms */
+    div[data-testid="stForm"] {
+        background:#ffffff !important;
+        border:1px solid var(--border) !important;
+        border-radius:14px !important;
+        padding:20px !important;
+    }
+    div[data-testid="stForm"] label,
+    div[data-testid="stForm"] p {color:var(--text) !important;}
+
+    /* Dataframes */
+    [data-testid="stDataFrame"] {
+        border:1px solid var(--border) !important;
+        border-radius:10px !important;
+        overflow:hidden !important;
+        background:#ffffff !important;
+    }
+
+    /* Alerts / info panels */
+    div[data-testid="stAlert"] * {color:inherit !important;}
+
+    .status-ok {color:var(--success) !important;font-weight:700;}
+    .status-warn {color:var(--warning) !important;font-weight:700;}
+    .status-bad {color:var(--danger) !important;font-weight:700;}
+
+    /* Login */
     .login-shell {
-        min-height:calc(100vh - 20px);
+        min-height:100vh;
         margin:-2rem -1rem -3rem -1rem;
-        padding:34px 20px 70px 20px;
+        padding:5vh 20px 70px 20px;
         display:flex;
         justify-content:center;
         align-items:flex-start;
-        background:radial-gradient(circle at 78% 18%,#1f4774 0,#0b1d32 36%,#020617 100%);
+        background:radial-gradient(circle at 80% 10%,#1f4774 0,#0b1d32 38%,#020617 100%);
     }
     .login-card {
-        width:min(520px,100%);
-        margin-top:8vh;
+        width:min(500px,100%);
+        margin-top:4vh;
         padding:34px;
-        background:rgba(255,255,255,.98);
-        border-radius:24px;
+        background:#ffffff !important;
+        border-radius:22px;
         box-shadow:0 28px 80px rgba(0,0,0,.35);
-        border:1px solid rgba(255,255,255,.16);
+        border:1px solid #dbe3ec;
     }
-    .login-wrap {width:100%;}
-    .small-muted {font-size:11px;color:#94a3b8;}
+    .login-card .login-brand {
+        text-align:center;margin-bottom:25px;
+    }
+    .login-card .login-brand-name {
+        font-size:38px;font-weight:950;color:var(--navy);
+        letter-spacing:2px;
+    }
+    .login-card .login-brand-sub {
+        color:#66788d;font-size:12px;letter-spacing:1.8px;text-transform:uppercase;
+        margin-top:7px;
+    }
+    .login-card h3, .login-card h2 {color:var(--navy) !important;}
+    .login-card .stTextInput label {color:var(--text) !important;}
+    .login-card .stTextInput input {
+        background:#f8fafc !important;color:var(--text) !important;
+        border:1px solid #cbd5e1 !important;border-radius:9px !important;
+    }
+    .small-muted {font-size:11px;color:#64748b !important;}
     </style>
     """,
     unsafe_allow_html=True,
@@ -507,32 +645,25 @@ if "autenticado" not in st.session_state:
 # Login
 # -------------------------
 if not st.session_state.autenticado:
+    bloqueo = st.session_state.bloqueo_hasta
+    st.markdown('<div class="login-shell"><div class="login-card">', unsafe_allow_html=True)
+
     st.markdown(
         """
-        <div class="login-shell">
-          <div class="login-card">
-            <div class="login-logo" style="color:#08233f;margin-top:0;font-size:38px;text-align:center;">DR. SIMI</div>
-            <div class="login-tag" style="color:#64748b;text-align:center;margin-bottom:22px;">Portal Corporativo de Gestión RRHH</div>
-          </div>
+        <div class="login-brand">
+            <div class="login-brand-name">DR. SIMI</div>
+            <div style="height:3px;width:58px;background:#1d4ed8;margin:10px auto 12px auto;"></div>
+            <div class="login-brand-sub">Portal Corporativo de Gestión RRHH</div>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
-    bloqueo = st.session_state.bloqueo_hasta
     if bloqueo and datetime.now() < bloqueo:
         st.error("Acceso temporalmente bloqueado por múltiples intentos fallidos.")
+        st.markdown("</div></div>", unsafe_allow_html=True)
         st.stop()
 
-    st.markdown('<div class="login-shell"><div class="login-card">', unsafe_allow_html=True)
-    st.markdown(
-        "<div style='text-align:center;margin-bottom:22px;'>"
-        "<div style='font-size:34px;font-weight:950;color:#08233f;letter-spacing:2px;'>DR. SIMI</div>"
-        "<div style='height:3px;width:58px;background:#1d4ed8;margin:10px auto 12px auto;'></div>"
-        "<div style='font-size:12px;color:#64748b;letter-spacing:1.8px;text-transform:uppercase;'>Portal Corporativo de Gestión RRHH</div>"
-        "</div>",
-        unsafe_allow_html=True,
-    )
     st.markdown("### 🔐 Identificación segura")
     st.caption("Ingrese sus credenciales corporativas para acceder al portal.")
 
@@ -557,12 +688,16 @@ if not st.session_state.autenticado:
 
         if row and row[4] == 1 and verify_password(password, row[1]):
             if not str(row[1]).startswith("pbkdf2_sha256$"):
-                execute("UPDATE usuarios SET password=? WHERE usuario=?", (hash_password(password), row[0]))
+                execute(
+                    "UPDATE usuarios SET password=? WHERE usuario=?",
+                    (hash_password(password), row[0]),
+                )
             st.session_state.autenticado = True
             st.session_state.usuario_actual = row[2]
             st.session_state.usuario_login = row[0]
             st.session_state.rol_actual = row[3]
             st.session_state.login_intentos = 0
+            st.session_state.bloqueo_hasta = None
             audit("LOGIN", f"Inicio de sesión: {row[0]}")
             st.rerun()
         else:
@@ -573,6 +708,7 @@ if not st.session_state.autenticado:
                 st.error("Demasiados intentos. Espere 5 minutos para volver a intentar.")
             else:
                 st.error("Credenciales inválidas o usuario desactivado.")
+
     st.stop()
 
 
@@ -624,7 +760,7 @@ opcion = st.sidebar.radio("Navegación", menu)
 st.sidebar.markdown("---")
 st.sidebar.caption(f"Sesión: {datetime.now():%d-%m-%Y %H:%M}")
 
-if st.sidebar.button("🚪 Cerrar sesión", use_container_width=True):
+if st.sidebar.button("🚪  Cerrar sesión", use_container_width=True):
     audit("LOGOUT", "Cierre de sesión")
     for key in ["autenticado", "usuario_actual", "rol_actual", "usuario_login"]:
         st.session_state.pop(key, None)
