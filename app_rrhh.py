@@ -500,6 +500,24 @@ def init_db():
     })
 
     # Índices útiles para las consultas del dashboard y alertas.
+
+    # Campos ampliados del Directorio oficial. Se agregan sin borrar información.
+    ensure_columns(cur, "sucursales", {
+        "ciudad": "TEXT",
+        "telefono": "TEXT",
+        "telfdt": "TEXT",
+        "telfdt2": "TEXT",
+        "horario_lunes_viernes": "TEXT",
+        "horario_sabado": "TEXT",
+        "horario_domingo": "TEXT",
+        "fecha_apertura": "TEXT",
+        "supervisor": "TEXT",
+        "jefe_comercial": "TEXT",
+        "email": "TEXT",
+        "geolocalizacion": "TEXT",
+        "ecommerce": "TEXT",
+    })
+
     cur.execute("CREATE INDEX IF NOT EXISTS idx_aus_active ON ausentismo_historico(activo)")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_aus_rut ON ausentismo_historico(rut)")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_aus_branch ON ausentismo_historico(sucursal)")
@@ -1805,7 +1823,7 @@ elif opcion == "⚙️ Configuración":
                         curx.execute("""INSERT INTO sucursales
                         (codigo,nombre,direccion,comuna,ciudad,region,telefono,director_tecnico,telfdt,dt_complementario,telfdt2,
                          horario_lunes_viernes,horario_sabado,horario_domingo,fecha_apertura,supervisor,jefe_comercial,email,geolocalizacion,ecommerce,latitud,longitud)
-                        VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                        VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                         ON CONFLICT(codigo) DO UPDATE SET nombre=excluded.nombre,direccion=excluded.direccion,
                         comuna=excluded.comuna,ciudad=excluded.ciudad,region=excluded.region,
                         director_tecnico=excluded.director_tecnico,dt_complementario=excluded.dt_complementario,
