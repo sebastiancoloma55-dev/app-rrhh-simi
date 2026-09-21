@@ -118,6 +118,11 @@ st.markdown(
       font-weight:800 !important;border-radius:9px !important;
     }
     section[data-testid="stSidebar"] .stButton > button:hover{background:#edf4ff !important;color:var(--navy) !important;}
+    section[data-testid="stSidebar"] .stButton > button,
+    section[data-testid="stSidebar"] .stButton > button *,
+    section[data-testid="stSidebar"] .stButton > button span{
+      color:var(--navy) !important;
+    }
 
     /* Cards / metrics */
     .card{background:#fff;border:1px solid var(--border);border-radius:15px;padding:18px;height:100%;
@@ -126,19 +131,82 @@ st.markdown(
     .metric-value{font-size:29px;font-weight:900;color:var(--navy) !important;margin-top:5px;}
     .metric-note{font-size:10px;color:#8393a5 !important;margin-top:2px;}
 
-    /* Inputs, selects, textareas */
+    /* Inputs, selects, textareas - visibles y ejecutivos */
     label,[data-testid="stWidgetLabel"] *, .stMarkdown p{color:var(--text) !important;}
-    input,textarea{
-      color:var(--text) !important;background:#fff !important;border:1px solid #c8d4e0 !important;
+
+    .stTextInput input,
+    .stTextArea textarea,
+    .stNumberInput input,
+    .stDateInput input,
+    .stTimeInput input,
+    .stSelectbox input {
+      color:var(--text) !important;
+      background:#f4f8fc !important;
+      border:1.5px solid #9fb3c7 !important;
+      border-radius:9px !important;
+      box-shadow:inset 0 1px 2px rgba(6,37,67,.04) !important;
     }
-    input::placeholder,textarea::placeholder{color:#8392a4 !important;opacity:1 !important;}
+
+    .stTextInput input:hover,
+    .stTextArea textarea:hover,
+    .stNumberInput input:hover,
+    .stDateInput input:hover,
+    .stTimeInput input:hover,
+    .stSelectbox input:hover {
+      background:#eef5fb !important;
+      border-color:#718da8 !important;
+    }
+
+    .stTextInput input:focus,
+    .stTextArea textarea:focus,
+    .stNumberInput input:focus,
+    .stDateInput input:focus,
+    .stTimeInput input:focus {
+      background:#ffffff !important;
+      border:2px solid var(--blue) !important;
+      box-shadow:0 0 0 2px rgba(31,91,213,.10) !important;
+    }
+
+    input::placeholder,textarea::placeholder{color:#788b9f !important;opacity:1 !important;}
+
+    /* Selectores */
     div[data-baseweb="select"] > div{
-      background:#fff !important;color:var(--text) !important;border:1px solid #c8d4e0 !important;
+      min-height:42px !important;
+      background:#f4f8fc !important;
+      color:var(--text) !important;
+      border:1.5px solid #9fb3c7 !important;
+      border-radius:9px !important;
+      box-shadow:inset 0 1px 2px rgba(6,37,67,.04) !important;
+    }
+    div[data-baseweb="select"] > div:hover{
+      background:#eef5fb !important;
+      border-color:#718da8 !important;
     }
     div[data-baseweb="select"] *{color:var(--text) !important;}
-    div[data-baseweb="popover"],div[role="listbox"],ul[role="listbox"]{background:#fff !important;}
-    div[role="option"]{background:#fff !important;color:var(--text) !important;}
-    div[role="option"]:hover{background:var(--blue2) !important;color:var(--navy) !important;}
+    div[data-baseweb="popover"],div[role="listbox"],ul[role="listbox"]{
+      background:#ffffff !important;
+      border:1px solid #c6d4e2 !important;
+      box-shadow:0 10px 30px rgba(16,42,67,.14) !important;
+    }
+    div[role="option"]{background:#ffffff !important;color:var(--text) !important;}
+    div[role="option"]:hover{background:#eaf2ff !important;color:var(--navy) !important;}
+
+    /* Date/Time controls */
+    [data-testid="stDateInput"] button,
+    [data-testid="stTimeInput"] button{
+      color:var(--navy) !important;
+      background:#e8f0f8 !important;
+      border-left:1px solid #9fb3c7 !important;
+    }
+
+    /* Checkboxes / radios */
+    [data-testid="stCheckbox"] label,
+    [data-testid="stRadio"] label {color:var(--text) !important;}
+    [data-testid="stCheckbox"] input:checked + div,
+    [data-testid="stRadio"] input:checked + div{
+      border-color:var(--blue) !important;
+      background:var(--blue) !important;
+    }
 
     /* Buttons */
     .stButton > button,.stDownloadButton > button{
@@ -558,6 +626,15 @@ if not st.session_state.autenticado:
           max-width:520px;margin:0 auto !important;background:rgba(255,255,255,.98) !important;
           border:1px solid rgba(255,255,255,.55) !important;border-radius:20px !important;
           padding:28px !important;box-shadow:0 24px 70px rgba(0,0,0,.34) !important;
+        }
+        div[data-testid="stForm"] input{
+          background:#f2f6fb !important;
+          border:1.5px solid #9fb3c7 !important;
+          color:#142a40 !important;
+        }
+        div[data-testid="stForm"] input:focus{
+          background:#fff !important;
+          border:2px solid #1f5bd5 !important;
         }
         </style>
         """,
