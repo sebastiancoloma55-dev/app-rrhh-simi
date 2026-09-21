@@ -256,6 +256,17 @@ def db():
     return sqlite3.connect(DB_NAME, check_same_thread=False)
 
 
+def ensure_columns(cur, table_name, columns):
+    """
+    Agrega columnas faltantes sin borrar información de una base existente.
+    columns: dict {nombre_columna: tipo_sql}
+    """
+    existing = {row[1] for row in cur.execute(f"PRAGMA table_info({table_name})").fetchall()}
+    for name, col_type in columns.items():
+        if name not in existing:
+            cur.execute(f"ALTER TABLE {table_name} ADD COLUMN {name} {col_type}")
+
+
 def init_db():
     con = db()
     cur = con.cursor()
@@ -463,6 +474,32 @@ def init_db():
         cur.execute("ALTER TABLE colaboradores ADD COLUMN sucursal_bm TEXT")
     if "datos_json" not in col_info:
         cur.execute("ALTER TABLE colaboradores ADD COLUMN datos_json TEXT")
+
+    # Migración completa de Sucursales para compatibilidad con el cargador oficial.
+    ensure_columns(cur, "sucursales", {
+        "ciudad": "TEXT",
+        "telefono": "TEXT",
+        "telfdt": "TEXT",
+        "telfdt2": "TEXT",
+        "horario_lunes_viernes": "TEXT",
+        "horario_sabado": "TEXT",
+        "horario_domingo": "TEXT",
+        "fecha_apertura": "TEXT",
+        "supervisor": "TEXT",
+        "jefe_comercial": "TEXT",
+        "email": "TEXT",
+        "geolocalizacion": "TEXT",
+        "ecommerce": "TEXT",
+    })
+
+    # Migración de Solicitudes para el historial general oficial.
+    ensure_columns(cur, "solicitudes", {
+        "fecha_solicitud": "TEXT",
+        "detalle": "TEXT",
+        "en_proceso": "INTEGER DEFAULT 0",
+    })
+
+    # Índices útiles para las consultas del dashboard y alertas.
     cur.execute("CREATE INDEX IF NOT EXISTS idx_aus_active ON ausentismo_historico(activo)")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_aus_rut ON ausentismo_historico(rut)")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_aus_branch ON ausentismo_historico(sucursal)")
