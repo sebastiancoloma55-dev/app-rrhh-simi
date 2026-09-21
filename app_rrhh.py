@@ -956,6 +956,12 @@ if st.session_state.navigate_to in menu:
 opcion = st.sidebar.radio("Navegación", menu, index=default_index, key="menu_principal")
 
 st.sidebar.markdown("---")
+st.sidebar.markdown(
+    "<div style='font-size:10px;color:#d9f4e9;opacity:.9;padding:3px 0 7px;'>"
+    "☰ Menú lateral: aquí están todos los módulos del portal"
+    "</div>",
+    unsafe_allow_html=True
+)
 st.sidebar.caption(f"Sesión: {datetime.now():%d-%m-%Y %H:%M}")
 
 if st.sidebar.button("🚪 CERRAR SESIÓN", use_container_width=True):
@@ -1032,6 +1038,44 @@ if opcion == "🏠 Inicio / Dashboard":
                 f'<div class="metric-value">{val}</div><div class="metric-note">Actualizado al ingresar</div></div>',
                 unsafe_allow_html=True,
             )
+
+    # ========================================================
+    # Accesos ejecutivos a los módulos
+    # ========================================================
+    st.markdown('<div class="section">📌 Accesos rápidos</div>', unsafe_allow_html=True)
+    accesos = [
+        ("👥", "Personas", "Ficha y búsqueda de colaboradores", "👥 Personas"),
+        ("🕐", "Asistencia", "Control diario y jornadas", "🕐 Asistencia"),
+        ("🏖️", "Vacaciones", "Vacaciones y permisos", "🏖️ Vacaciones y Permisos"),
+        ("🏥", "Licencias", "Ausentismo oficial y retornos", "🏥 Licencias"),
+        ("🔄", "Coberturas", "Programar reemplazos", "🔄 Coberturas y Movimientos"),
+        ("🏪", "Sucursales", "Directorio y responsables", "🏪 Sucursales"),
+        ("🚨", "Alertas", "Ausentismo e incidencias", "🚨 Alertas de Ausentismo"),
+        ("📈", "Reportes", "Excel y gestión", "📈 Reportes"),
+        ("⚙️", "Configuración", "Carga oficial y parámetros", "⚙️ Configuración"),
+    ]
+
+    for base in range(0, len(accesos), 3):
+        cols = st.columns(3)
+        for col, item in zip(cols, accesos[base:base+3]):
+            icon, title, desc, target = item
+            with col:
+                st.markdown(
+                    f"""
+                    <div style="background:#ffffff;border:1px solid #d6e5de;border-radius:14px;
+                                padding:15px 16px;margin-bottom:10px;min-height:88px;
+                                box-shadow:0 4px 13px rgba(15,95,73,.05);">
+                        <div style="font-size:22px;margin-bottom:4px;">{icon}</div>
+                        <div style="font-size:15px;font-weight:850;color:#0f5f49;">{title}</div>
+                        <div style="font-size:11px;color:#71837c;margin-top:3px;">{desc}</div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
+                if st.button(f"ABRIR {title.upper()}", key=f"quick_{title}", use_container_width=True):
+                    if target in menu:
+                        st.session_state.navigate_to = target
+                        st.rerun()
 
     st.markdown('<div class="section">🚨 Alertas de Ausentismo y Continuidad</div>', unsafe_allow_html=True)
 
