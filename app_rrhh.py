@@ -702,6 +702,20 @@ def get_col(df, aliases, default=""):
     return pd.Series([default] * len(df), index=df.index)
 
 
+def resolve_branch_code(branch_text, sucs_df):
+    """Busca el código del Directorio por nombre de sucursal, tolerando mayúsculas/espacios."""
+    txt = str(branch_text or "").strip()
+    if not txt or txt.lower() in {"nan", "none", "nat"}:
+        return ""
+    if sucs_df.empty:
+        return ""
+    norm = normalize_text(txt)
+    for _, rr in sucs_df.iterrows():
+        if normalize_text(rr.get("nombre", "")) == norm:
+            return str(rr.get("codigo", "")).strip()
+    return ""
+
+
 def collaborator_default_branch(rut, colabs_df):
     """Devuelve código, nombre BM y nombre del Directorio para un colaborador."""
     row = colabs_df[colabs_df["rut"].astype(str) == str(rut)]
@@ -1665,11 +1679,15 @@ elif opcion == "🔄 Coberturas y Movimientos":
         target_row = colabs[colabs["rut"].astype(str)==str(rut_reemplaza)].iloc[0]
         target_bm = str(target_row.get("sucursal_bm") or target_row.get("sucursal_nombre") or "").strip()
         target_code = str(target_row.get("codigo_sucursal") or "").strip()
+        if target_code.lower() in {"nan","none","nat"}:
+            target_code = ""
+        if target_code not in sucs["codigo"].astype(str).tolist():
+            target_code = resolve_branch_code(target_bm, sucs)
 
-        if target_code and target_code in sucs["codigo"].tolist():
-            target_name = str(sucs.loc[sucs["codigo"]==target_code,"nombre"].iloc[0])
-        else:
-            target_name = target_bm
+        target_name = (
+            str(sucs.loc[sucs["codigo"].astype(str)==str(target_code),"nombre"].iloc[0])
+            if target_code else target_bm
+        )
 
         # ---------- Paso 2: lugar ----------
         st.markdown('<div class="section">2️⃣ ¿En qué sucursal se necesita la cobertura?</div>', unsafe_allow_html=True)
@@ -1682,7 +1700,7 @@ elif opcion == "🔄 Coberturas y Movimientos":
             dest_codes,
             index=dest_default,
             format_func=lambda c: sucs.loc[sucs["codigo"]==c,"nombre"].iloc[0],
-            key="cov_destino",
+            key=f"cov_destino_{rut_reemplaza}",
         )
 
         # ---------- Paso 3: quién cubre ----------
@@ -1701,25 +1719,36 @@ elif opcion == "🔄 Coberturas y Movimientos":
         support_row=colabs[colabs["rut"].astype(str)==str(rut_apoyo)].iloc[0]
         support_bm=str(support_row.get("sucursal_bm") or support_row.get("sucursal_nombre") or "").strip()
         support_code=str(support_row.get("codigo_sucursal") or "").strip()
-        support_name=str(sucs.loc[sucs["codigo"]==support_code,"nombre"].iloc[0]) if support_code in sucs["codigo"].tolist() else support_bm
+        if support_code.lower() in {"nan","none","nat"}:
+            support_code = ""
+        if support_code not in sucs["codigo"].astype(str).tolist():
+            support_code = resolve_branch_code(support_bm, sucs)
+        support_name=(
+            str(sucs.loc[sucs["codigo"].astype(str)==str(support_code),"nombre"].iloc[0])
+            if support_code else support_bm
+        )
 
         orig_codes=sucs["codigo"].tolist()
         orig_default=orig_codes.index(support_code) if support_code in orig_codes else 0
+        # La clave depende del colaborador Y de su sucursal BM.
+        # Así, al cambiar de persona, el origen se recalcula y no conserva
+        # la selección anterior (por ejemplo, Talca) por estado de Streamlit.
+        origin_widget_key = f"cov_origen_{rut_apoyo}_{support_code or 'sin_codigo'}"
         suc_origen=st.selectbox(
             "Sucursal de origen del apoyo",
             orig_codes,
             index=orig_default,
             format_func=lambda c: sucs.loc[sucs["codigo"]==c,"nombre"].iloc[0],
-            key="cov_origen",
+            key=origin_widget_key,
         )
 
         st.markdown(
             f"""
             <div class="card">
-              <div class="metric-label">Sucursal habitual del apoyo · BM</div>
+              <div class="metric-label">Sucursal original del apoyo · BM</div>
               <div style="font-size:21px;font-weight:900;color:#0f5f49;margin-top:3px;">{support_bm or 'No informada'}</div>
               <div style="font-size:11px;color:#71837c;margin-top:6px;">
-                Origen sugerido: <b>{support_name or 'Sin cruce'}</b>. Puede modificarlo.
+                Origen automático desde BM: <b>{support_name or 'Sin cruce'}</b>. Puedes modificarlo solo si corresponde.
               </div>
             </div>
             """, unsafe_allow_html=True
@@ -1778,6 +1807,24 @@ elif opcion == "🔄 Coberturas y Movimientos":
         else:
             total=0
             st.warning("Seleccione al menos un día de cobertura para continuar.")
+
+        st.markdown(
+            f"""
+            <div style="background:#eaf6f0;border:1px solid #c8ded4;border-radius:12px;
+                        padding:12px 15px;margin:12px 0 10px;">
+                <div style="font-size:11px;color:#60766e;text-transform:uppercase;letter-spacing:.4px;font-weight:800;">
+                    Resumen de cobertura
+                </div>
+                <div style="font-size:14px;color:#173c31;margin-top:5px;">
+                    <b>Ausente:</b> {target_row["nombre_completo"]} ·
+                    <b>Destino:</b> {sucs.loc[sucs["codigo"]==suc_dest,"nombre"].iloc[0]} ·
+                    <b>Apoyo:</b> {support_row["nombre_completo"]} ·
+                    <b>Origen:</b> {sucs.loc[sucs["codigo"]==suc_origen,"nombre"].iloc[0]}
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
 
         if st.button("💾 GUARDAR COBERTURA",type="primary",use_container_width=True):
             if termino < inicio:
